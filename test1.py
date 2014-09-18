@@ -1,4 +1,3 @@
-import urllib2
 import pickle
 import re
 
@@ -108,7 +107,8 @@ def level5():
             mylist.append( i[0] * i[1] )
         print ''.join(mylist)
 
-
+def level6():
+    print 'level 6'
 
 def main():
     level0()
