@@ -34,7 +34,7 @@ def get_used_code_fromdat(filelist):
 
 
 def filter_code_in_fontfile(filename, codelist):
-    logging.info('filter ' + filename)
+    logging.info('**********Start filter ' + filename)
 
     content_ret = ''
     inputfile = open('bdf\\' + filename,'r')
@@ -62,6 +62,8 @@ def filter_code_in_fontfile(filename, codelist):
     content_ret = headstr + ''.join(code_definitions) + 'ENDFONT\n'
 
     inputfile.close()
+
+    logging.info('**********End filter ' + filename)
     return content_ret
 
 
