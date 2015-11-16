@@ -68,18 +68,14 @@ def filter_code_in_fontfile(filename, codelist):
 def save_str(filename, str, param = 'w'):
     filename = 'out\\' + filename
     fh = open(filename, param)
-
     fh.write(str)
-
     fh.close()
 
 
 def save_list(filename, codelist, param = 'w'):
     filename = 'out\\' + filename
     fh = open(filename, param)
-
     fh.writelines(codelist)
-
     fh.close()
 
 
