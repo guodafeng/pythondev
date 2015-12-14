@@ -1,4 +1,4 @@
-
+﻿
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
@@ -16,6 +16,7 @@ import os.path
 import argparse
 import getopt
 import sys
+import time
 
 class LogInfo(object):
     __content = ''
@@ -55,7 +56,18 @@ class LogInfo(object):
         
 
 
+def save_str(filename, str, param = 'w'):
+    fh = open(filename, param)
+    fh.write(str)
+    fh.close()
 
+def cur_file_dir():
+     path = sys.path[0]
+     if os.path.isdir(path):
+         return path + '\\'
+     elif os.path.isfile(path):
+         return os.path.dirname(path) +'\\'
+     
 def get_logfile_list(folder):
     ret_list = []
     for rt, dirs, files in os.walk(folder):
@@ -89,15 +101,18 @@ def analyze_log_dir(folder):
             uploadok_count += 1
         if loginfo.is_record_ok():
             recordok_count += 1
-
-    print "*****************Adya user experience results*****************************"
-    print "Successful rate for recording voice:(%d/%d) %.4f " % (recordok_count, count, 1.0 * recordok_count/count)
-    print "Successful rate for voice upload:(%d/%d) %.4f " % (uploadok_count, count, 1.0 * uploadok_count/count)
-    print "Successful rate for voice to text(stt):(%d/%d) %.4f " % (sttok_count, count, 1.0 * sttok_count/count)
-    print "Successful rate for LUIS understanding:(%d/%d) %.4f " % (luisok_count, count, 1.0 * luisok_count/count)
-    print "Successful rate for TTS ok:(%d/%d) %.4f " % (ttsok_count, count, 1.0 * ttsok_count/count)
-    print "Successful rate of whole function:(%d/%d) %.4f " % (succeed_count, count, 1.0 * succeed_count/count)
-
+    localtime = time.asctime( time.localtime(time.time()) )
+    report = []
+    report.append("***************** Adya user experience results till %s*****************" % str(localtime))
+    report.append("Successful rate for recording voice:(%d/%d) %.4f " % (recordok_count, count, 1.0 * recordok_count/count))
+    report.append("Successful rate for voice upload:(%d/%d) %.4f " % (uploadok_count, count, 1.0 * uploadok_count/count))
+    report.append("Successful rate for voice to text(stt):(%d/%d) %.4f " % (sttok_count, count, 1.0 * sttok_count/count))
+    report.append("Successful rate for LUIS understanding:(%d/%d) %.4f " % (luisok_count, count, 1.0 * luisok_count/count))
+    report.append("Successful rate for TTS ok:(%d/%d) %.4f " % (ttsok_count, count, 1.0 * ttsok_count/count))
+    report.append("Successful rate of whole function:(%d/%d) %.4f " % (succeed_count, count, 1.0 * succeed_count/count))
+    report.append("======================================End==============================================\n\n")
+    print cur_file_dir()
+    save_str(cur_file_dir() + 'report.txt', '\n'.join(report), 'a')
 
 def usage():
         print sys.argv[0] + ' -i log folder, default will be .\\log\\'
