@@ -28,6 +28,20 @@ class LogInfo(object):
         self.__content_list = self.__content.split('\\n')
         fh.close()
         
+    def is_service_start(self):
+        return  self.__content.find('[service]') > -1
+    def is_upload_start(self):
+        return  self.__content.find('[voice upload]') > -1
+    def is_stt_start(self):
+        return  self.__content.find('[STT]') > -1
+    def is_luis_start(self):
+        return  self.__content.find('[LUIS]') > -1
+    def is_tts_start(self):
+        return  self.__content.find('[TTS]') > -1
+    def is_record_start(self):
+        return self.__content.find('[record]') > -1
+
+
     def is_service_ok(self):
         return  self.__content.rfind('[service ok]') > -1
     def is_upload_ok(self):
@@ -81,7 +95,9 @@ def get_logfile_list(folder):
 def analyze_log_dir(folder):
 
     logfiles = get_logfile_list(folder)
-    succeed_count = ttsok_count = luisok_count = sttok_count = uploadok_count = recordok_count = 0
+    service_ok = ttsok_count = luisok_count = sttok_count = uploadok_count = recordok_count = 0
+
+    service_start = ttsstart_count = luisstart_count = sttstart_count = uploadstart_count = recordstart_count = 0
     count = len(logfiles)
     if (count ==0):
         print "No log files found, please check your input folder"
@@ -89,8 +105,21 @@ def analyze_log_dir(folder):
 
     for logfile in logfiles:
         loginfo = LogInfo(folder + '\\' + logfile)
+        if (loginfo.is_service_start()):
+            service_start+=1
+        if (loginfo.is_luis_start()):
+            luisstart_count +=1
+        if loginfo.is_stt_start():
+            sttstart_count +=1
+        if loginfo.is_tts_start():
+            ttsstart_count +=1
+        if loginfo.is_upload_start():
+            uploadstart_count += 1
+        if loginfo.is_record_start():
+            recordstart_count += 1
+            
         if (loginfo.is_service_ok()):
-            succeed_count+=1
+            service_ok+=1
         if (loginfo.is_luis_ok()):
             luisok_count +=1
         if loginfo.is_stt_ok():
@@ -104,14 +133,14 @@ def analyze_log_dir(folder):
     localtime = time.asctime( time.localtime(time.time()) )
     report = []
     report.append("***************** Adya user experience results till %s*****************" % str(localtime))
-    report.append("Successful rate for recording voice:(%d/%d) %.4f " % (recordok_count, count, 1.0 * recordok_count/count))
-    report.append("Successful rate for voice upload:(%d/%d) %.4f " % (uploadok_count, count, 1.0 * uploadok_count/count))
-    report.append("Successful rate for voice to text(stt):(%d/%d) %.4f " % (sttok_count, count, 1.0 * sttok_count/count))
-    report.append("Successful rate for LUIS understanding:(%d/%d) %.4f " % (luisok_count, count, 1.0 * luisok_count/count))
-    report.append("Successful rate for TTS ok:(%d/%d) %.4f " % (ttsok_count, count, 1.0 * ttsok_count/count))
-    report.append("Successful rate of whole function:(%d/%d) %.4f " % (succeed_count, count, 1.0 * succeed_count/count))
+    report.append("******************The rate is caculated for the specific action which has been started***********************")
+    report.append("Successful rate for recording voice:(%d/%d) %.4f " % (recordok_count, recordstart_count, 1.0 * recordok_count/recordstart_count))
+    report.append("Successful rate for voice upload:(%d/%d) %.4f " % (uploadok_count, uploadstart_count, 1.0 * uploadok_count/uploadstart_count))
+    report.append("Successful rate for voice to text(stt):(%d/%d) %.4f " % (sttok_count, sttstart_count, 1.0 * sttok_count/sttstart_count))
+    report.append("Successful rate for LUIS understanding:(%d/%d) %.4f " % (luisok_count, luisstart_count, 1.0 * luisok_count/luisstart_count))
+    report.append("Successful rate for TTS ok:(%d/%d) %.4f " % (ttsok_count, ttsstart_count, 1.0 * ttsok_count/ttsstart_count))
+    report.append("Successful rate of whole function:(%d/%d) %.4f " % (service_ok, count, 1.0 * service_ok/service_start))
     report.append("======================================End==============================================\n\n")
-    print cur_file_dir()
     save_str(cur_file_dir() + 'report.txt', '\n'.join(report), 'a')
 
 def usage():

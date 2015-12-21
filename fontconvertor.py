@@ -15,7 +15,14 @@ import re
 import logging
 import os
 import os.path
-import argparse
+import getopt
+import sys
+import codecs
+
+#generate the visualble content in bdf for debug
+VISUAL_MODE=False
+def uni_info(code):
+    return unicode(hex(code)) + u':' + unichr(code) + u'  '
 
 class otf2bdf(object):
     __ttfname = ''
@@ -34,6 +41,8 @@ class otf2bdf(object):
     __outdir = 'out\\'
     __bdfdir = 'bdf\\'
     __ttfdir = 'ttf\\'
+    __ymax = 0
+    __ymin = 0
     #default freetype loading flag
     __my_loadflags = FT_LOAD_RENDER | FT_LOAD_TARGET_MONO
 
@@ -57,13 +66,20 @@ class otf2bdf(object):
         fh.write(str)
 
         fh.close()
+    def __save_unicode_str(self, filename, str, param = 'w'):
+        filename = self.__outdir + filename
+        with codecs.open(filename, param, encoding='utf-16') as f:
+            f.write(str)
 
     def __get_out_name(self, filename, charsize):
         outname = filename
-        for size in [17,18,22]:
+        for size in [17,18]:
+            if (charsize == 18):
+                break
             if outname.find(str(size))>=0:
                 outname = outname.replace(str(size), str(charsize))
-      
+        if (VISUAL_MODE):
+            outname += "visual"
         return outname
                         
     def __get_font_name(self, filename):
@@ -88,7 +104,10 @@ class otf2bdf(object):
         header.append("FONT %s\n" % (self.__font_name))
 
         header.append("SIZE %d 72 72\n" % (self.__char_size))
-        header.append("FONTBOUNDINGBOX %hd %hd %hd %hd\n" % (self.__fbbx,self.__fbby, self.__fxoff, self.__fyoff))
+        if self.__is_chinese():
+            header.append("FONTBOUNDINGBOX %hd %hd %hd %hd\n" % (self.__char_width, self.__fbby, self.__fxoff, self.__fyoff))
+        else:
+            header.append("FONTBOUNDINGBOX %hd %hd %hd %hd\n" % (self.__fbbx,self.__fbby, self.__fxoff, self.__fyoff))
 
 
         header.append("STARTPROPERTIES 2\n")
@@ -140,6 +159,12 @@ class otf2bdf(object):
         charinfo.append("SWIDTH %d\n" % ( swidth ))
         charinfo.append("DWIDTH %d\n" % (dwidth))
 
+        x_shift = 0
+        if (self.__is_chinese()):
+            bbx_w = self.__char_width
+            x_shift = bbx_xoff
+            bbx_xoff = 0
+
         charinfo.append("BBX %ld %ld %hd %hd\n" % (bbx_w, self.__fbby, bbx_xoff, self.__fyoff))
 
         charinfo.append("BITMAP\n")
@@ -150,6 +175,7 @@ class otf2bdf(object):
         bf = bitmap.buffer
         bf = self.__align_buffer_height(bf, bitmap.rows, bitmap.pitch, (bbx_yoff - self.__fyoff))
         bf = self.__align_buffer_width(dest_byte_per_row, bitmap.pitch, bf)
+        bf = self.__shift_buffer(bf, dest_byte_per_row, x_shift)
         
         for j in range(height):
             for i in range(dest_byte_per_row):
@@ -158,7 +184,7 @@ class otf2bdf(object):
 
         charinfo.append("ENDCHAR\n")
 
-    #    charinfo.append(  get_visible_content(bf,dest_byte_per_row,height) )
+        charinfo.append(  self.__get_visible_content(bf,dest_byte_per_row,height) )
         return charinfo
 
     def __is_chinese(self):
@@ -166,8 +192,6 @@ class otf2bdf(object):
 
     def __get_dest_byte_per_row(self, bbx_w):
         bytes = (bbx_w +7)/8
-        if (self.__is_chinese()):
-             bytes = (self.__char_width + 7)/8
         if (bytes == 0):
             bytes = 1
         return bytes
@@ -179,6 +203,9 @@ class otf2bdf(object):
         #bottom_indent should >= 0
         if (bottom_indent<0):
             print ("error: bottem_indent<0")
+
+        if (self.__ymax + bottom_indent) > self.__char_height:
+            bottom_indent = max(self.__char_height - self.__ymax, 0)
 
         top_indent = (self.__char_height - rows - bottom_indent)
         newbf = bf
@@ -209,8 +236,27 @@ class otf2bdf(object):
                 bf = newbf
         return bf
 
+    def __shift_buffer(self, bf, byte_per_row, x_shift):
+        if (x_shift<=0):
+            return bf
+        for i in range(self.__char_height):
+            dest = 0L
+            for j in range(byte_per_row):
+                dest |= bf[i*byte_per_row + j]
+                dest <<= 8
+            dest >>=8
+            dest >>= x_shift
+            mask = 0xff
+            for j in range(byte_per_row,0,-1):
+                bf[i*byte_per_row + j-1] = int(dest&mask)
+                dest>>=8
+                
+                
+        return bf
 
     def __get_visible_content(self, buffer,dest_byte_per_row,height):
+        if (not VISUAL_MODE):
+            return ''
 
         strlist = []
         for i in range(height):
@@ -236,6 +282,7 @@ class otf2bdf(object):
             face.load_glyph(gindex, self.__my_loadflags) 
             (wd, ht, xoff, yoff) = self.__get_bounding(slot.bitmap, slot.bitmap_left, slot.bitmap_top)
 
+#            print "code %x yoff is: %d, bitmaptop is %d" % (self.__curchar, yoff, slot.bitmap_top)
             bbx_maxas = max(bbx_maxas, ht + yoff)
             bbx_maxds = max(bbx_maxds, -yoff)
             bbx_rbearing = wd + xoff
@@ -281,8 +328,16 @@ class otf2bdf(object):
         wd = ex - sx;
         ht = ey - sy;
         xoff = sx + left;
-        yoff = sy + top - bitmap.rows;
+        #yoff = sy + top - bitmap.rows;
+        yoff = top - bitmap.rows
         
+        #MTK addition requirment: BBX width caculate from 0 to the right most point
+        wd = ex
+        xoff = left
+        #used in align buffer in height, to avoid discarding real point
+        self.__ymin = sy
+        self.__ymax = ey
+#        yoff = top - bitmap.rows
         #MTK addition requirment: the FONTBOUNDINGBOX xoff should be 0, so here xoff shouldnot be less than 0
         if (xoff < 0):
            xoff = 0
@@ -296,7 +351,7 @@ class otf2bdf(object):
 
 
     def __get_code_in_bdf(self, filename):
-        #return [0x00a4,0x718a,0x9878]
+        #return [0x91cf,0x529b,0x3002]
         code_list_ret = []
         logging.info('pocessing ' + filename)
         inputfile = open(self.__bdfdir+filename,'r')
@@ -314,8 +369,15 @@ class otf2bdf(object):
             code_list_ret.append(charcode)
         return code_list_ret
 
+    def __is_gujarati(self):
+        return self.__ttfname.lower() == 'Lohit-Gujarati_Shruti_Win7.ttf'.lower()
+
     def __get_face(self, filename, width, height):
         face = Face(self.__ttfdir+filename)
+        if (self.__is_gujarati()):
+            width -= width/6
+            height -= height/6
+
         face.set_pixel_sizes(width,height)
     #    face.set_char_size(width*64,height*64,self.__resolution,self.__resolution)
 
@@ -324,6 +386,36 @@ class otf2bdf(object):
         print("family_name = %s" % face.family_name)
         return face
 
+    def __get_missedinfo_inref(self, code):
+        bdfname = self.__get_out_name(self.__bdfname, self.__char_size)
+        inputfile = open(self.__bdfdir+bdfname,'r')
+        all_the_text = inputfile.read()
+        inputfile.close()
+
+        char_content = ''
+        codestr = "%04lx" % code
+        matchstr = r'(STARTCHAR\s' + codestr + r'[\s\S]*?ENDCHAR\n)'
+        matchres = re.search(matchstr, all_the_text, re.IGNORECASE)
+        if matchres:
+            char_content = matchres.groups()[0]
+        #change the bbx_of to the converted value
+        repattern = r'(BBX \d+ \d+ \d+ )(-?\d+)'
+        matchres = re.search(repattern, char_content)
+        if matchres:
+            replacestr = matchres.groups()[0] + str(self.__fyoff)
+            #extend FBBX if need
+            width_pattern = r'BBX (\d+) \d+ (\d+)'
+            res2 = re.search(width_pattern, char_content)
+            if res2:
+                width = int(res2.groups()[0],10) + int(res2.groups()[1])
+                if (width > self.__fbbx):
+                    self.__fbbx = width
+
+
+        char_content = re.sub(repattern, replacestr, char_content)
+        #TODO: buffer may need to shift up/down
+        return char_content
+        
 
     def __convert_to_bdf_with_code(self, face, codelist):
         content = []
@@ -336,14 +428,13 @@ class otf2bdf(object):
             if (gindex<=0):
                 logging.warning("Code %lX is not found in the ttf file")
                 missed.append(charcode)
-                continue
-
-            logging.info("      0x%04lx => %d" % (charcode, gindex))
-            #if (self.__char_width<=18):
-            #    my_loadflags = FT_LOAD_RENDER | FT_LOAD_TARGET_MONO | FT_LOAD_NO_HINTING |FT_LOAD_IGNORE_GLOBAL_ADVANCE_WIDTH
-            
-            face.load_glyph(gindex, self.__my_loadflags) 
-            content += self.__get_bdfcharinfo(slot, charcode)
+                #continue
+                content += self.__get_missedinfo_inref(charcode)
+            else:
+                logging.info("      0x%04lx => %d" % (charcode, gindex))
+                
+                face.load_glyph(gindex, self.__my_loadflags) 
+                content += self.__get_bdfcharinfo(slot, charcode)
             charcount += 1
 
         content.append("ENDFONT\n")
@@ -370,14 +461,14 @@ class otf2bdf(object):
 
             self.__font_name = self.__get_font_name(self.__bdfname)
             codeused = self.__get_code_in_bdf(self.__bdfname)
-            self.__save_list(self.__bdfname+"usedcode.txt", '\n'.join(map(hex, codeused)))
+            self.__save_unicode_str(self.__bdfname+"usedcode.txt", ''.join(map(uni_info, codeused)))
             outputfile = self.__get_out_name(self.__bdfname, charsize)
 
             self.__get_font_bounding(face, codeused)
 
             content, missed = self.__convert_to_bdf_with_code(face, codeused)
             self.__save_list(outputfile, content)
-            self.__save_str(self.__bdfname+"missedcode.txt", '\n'.join(map(hex,missed)))
+            self.__save_list(self.__bdfname+"missed.txt", '\n'.join(map(hex, missed)))
 
 
 
@@ -409,7 +500,7 @@ def font_matching_convert():
         'SimSun.ttf':['CESI_1718_GB2312.bdf','CESI_1718.bdf'],
     } 
     #font__match_table = {
-    #    'NokiaPureS40LATN_Rg_Segoe_UI.ttf':['NOSNR18.bdf'],
+    #     'Lohit-Gujarati_Shruti_Win7.TTF':['GujaratiMT18.bdf'],
     #} 
     for fontfile in font__match_table.keys():
         filter_file_list = font__match_table[fontfile]
@@ -421,6 +512,15 @@ def font_matching_convert():
 def main():
     #ttf files should be put under .\ttf , origial bdf files should be put under .\bdf, 
     #converted bdf files will be saved to .\out
+    global VISUAL_MODE
+    opts, args = getopt.getopt(sys.argv[1:], "hv", ["help", "visual"])
+
+    for op, value in opts:
+        if op == '-v' or op == '--visual':
+            VISUAL_MODE = True
+        elif op == '-h':
+            usage()
+            sys.exit()
 
     logging.basicConfig(level=logging.DEBUG,
                 format='%(asctime)s [line:%(lineno)d] %(levelname)s %(message)s',
@@ -431,7 +531,9 @@ def main():
     path = os.path.join(os.getcwd(), 'out')
     if not os.path.exists(path):
         os.mkdir(path)
+    
 
+    
     font_matching_convert()
 
     logging.info('********************End process******************************')
