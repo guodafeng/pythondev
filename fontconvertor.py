@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
-#
+#  
+#  Used FreeType-py to convert vector font file to bitmap font file--
 #  FreeType high-level python API - Copyright 2011 Nicolas P. Rougier
 #  Distributed under the terms of the new BSD license.
 #
@@ -21,8 +22,63 @@ import codecs
 
 #generate the visualble content in bdf for debug
 VISUAL_MODE=False
-def uni_info(code):
-    return unicode(hex(code)) + u':' + unichr(code) + u'  '
+
+
+PADDING_MAP = {}
+
+def init_padding():
+    global PADDING_MAP
+    hindi_leftpadding18 = []
+    hindi_leftpadding22 = []
+    hindi_leftpadding26 = []
+    PADDING_MAP = {'hindi18':hindi_leftpadding18,
+                   'hindi22':hindi_leftpadding22,
+                   'hindi26':hindi_leftpadding26}
+    for k in PADDING_MAP:
+        for i in range(15):
+            PADDING_MAP[k].append([])
+
+    # The data are from the HindiFontSpec_Ver26_N.xlsx Remark columns
+    hindi_leftpadding18[0] = [0x0940,0x094A,0x094B,0x094C,0xE95B,0xE95C,0xE95D,0xE95E,0xE95F,0xE987,0xE988,0xE989,0xE991,0xE992,0xE993,0xE994,0xE995,0xE9AD]
+    hindi_leftpadding18[1] = [0x904,0x905,0x906,0x907,0x908,0x909,0x90A,0x090B,0x090C,0x090D,0x090E,0x090F,0x910,0x911,0x912,0x913,0x914,0x915,0x916,0x917,0x918,0x919,0x091A,0x091B,0x091C,0x091D,0x091E,0x091F,0x920,0x921,0x922,0x923,0x924,0x925,0x926,0x927,0x928,0x929,0x092A,0x092B,0x092C,0x092D,0x092E,0x092F,0x930,0x931,0x932,0x933,0x934,0x935,0x936,0x937,0x938,0x939,0x093D,0x093E,0x093F,0x949,0x950,0x951,0x952,0x953,0x954,0x958,0x959,0x095A,0x095B,0x095C,0x095D,0x095E,0x095F,0x960,0x961,0x962,0x963,0x970,0xE900,0xE901,0xE902,0xE903,0xE904,0xE905,0xE906,0xE907,0xE908,0xE909,0xE90A,0xE90B,0xE90C,0xE90D,0xE90E,0xE90F,0xE915,0xE916,0xE917,0xE918,0xE919,0xE91A,0xE91B,0xE91C,0xE91D,0xE91E,0xE91F,0xE920,0xE921,0xE922,0xE923,0xE924,0xE925,0xE926,0xE927,0xE928,0xE929,0xE92A,0xE92B,0xE92C,0xE92D,0xE92E,0xE92F,0xE930,0xE931,0xE932,0xE933,0xE934,0xE935,0xE936,0xE937,0xE938,0xE939,0xE940,0xE941,0xE942,0xE943,0xE944,0xE945,0xE946,0xE947,0xE948,0xE949,0xE94A,0xE94B,0xE94C,0xE94D,0xE94E,0xE94F,0xE950,0xE951,0xE952,0xE953,0xE954,0xE955,0xE956,0xE957,0xE958,0xE959,0xE970,0xE971,0xE972,0xE973,0xE974,0xE975,0xE976,0xE97C,0xE97D,0xE97E,0xE97F,0xE980,0xE981,0xE982,0xE983,0xE984,0xE985,0xE986,0xE996,0xE997,0xE998,0xE999,0xE99B,0xE99C,0xE99D,0xE99E,0xE99F,0xE9A0,0xE9A1,0xE9A2,0xE9A3,0xE9A4,0xE9A7,0xE9A9,0xE9AA,0xE9AB,0xE9AC,0xE9AE,0xE9AF,0xE9B0,0xE9B1,0xE9B2,0xE9B3,0xE9B4,0xE9B5,0xE9B6,0xE9B7,0xE9B8,0xE9B9,0xE9BC,0xE9BD,0xE9BE,0xE9BF,0xE9C0,0xE9C1,0xE9c2,0xE9C3,0xE9c4]
+    hindi_leftpadding18[2] = [0x093C,0x964,0x965,0x966,0x967,0x968,0x969,0x096A,0x096B,0x096C,0x096D,0x096E,0x096F]
+    hindi_leftpadding18[3] = [0x903,0x941,0x946,0x948,0xE98E,0xE98F,0xE990]
+    hindi_leftpadding18[4] = []
+    hindi_leftpadding18[5] = [0x901,0x943,0x944,0x947,0xE97B,0xE98A,0xE98B,0xE98C,0xE98D]
+    hindi_leftpadding18[6] = [0x942,0x945,0x094D]
+    hindi_leftpadding18[9] = [0x902]
+    
+    hindi_leftpadding22[0] = [0x940,0x094A,0x094B,0x094C,0xE95B,0xE95C,0xE95D,0xE95E,0xE95F,0xE987,0xE988,0xE989,0xE991,0xE992,0xE993,0xE994,0xE995,0xE9AD]
+    hindi_leftpadding22[1] = [0x904,0x905,0x906,0x907,0x908,0x909,0x90A,0x090B,0x090C,0x090D,0x090E,0x090F,0x910,0x911,0x912,0x913,0x914,0x915,0x916,0x917,0x918,0x919,0x091A,0x091B,0x091C,0x091D,0x091E,0x091F,0x920,0x921,0x922,0x923,0x924,0x925,0x926,0x927,0x928,0x929,0x092A,0x092B,0x092C,0x092D,0x092E,0x092F,0x930,0x931,0x932,0x933,0x934,0x935,0x936,0x937,0x938,0x939,0x093D,0x093E,0x093F,0x949,0x950,0x951,0x952,0x953,0x954,0x958,0x959,0x095A,0x095B,0x095C,0x095D,0x095E,0x095F,0x960,0x961,0x962,0x963,0x970,0xE900,0xE901,0xE902,0xE903,0xE904,0xE905,0xE906,0xE907,0xE908,0xE909,0xE90A,0xE90B,0xE90C,0xE90D,0xE90E,0xE90F,0xE915,0xE916,0xE917,0xE918,0xE919,0xE91A,0xE91B,0xE91C,0xE91D,0xE91E,0xE91F,0xE920,0xE921,0xE922,0xE923,0xE924,0xE925,0xE926,0xE927,0xE928,0xE929,0xE92A,0xE92B,0xE92C,0xE92D,0xE92E,0xE92F,0xE930,0xE931,0xE932,0xE933,0xE934,0xE935,0xE936,0xE937,0xE938,0xE939,0xE940,0xE941,0xE942,0xE943,0xE944,0xE945,0xE946,0xE947,0xE948,0xE949,0xE94A,0xE94B,0xE94C,0xE94D,0xE94E,0xE94F,0xE950,0xE951,0xE952,0xE953,0xE954,0xE955,0xE956,0xE957,0xE958,0xE959,0xE970,0xE971,0xE972,0xE973,0xE974,0xE975,0xE976,0xE97C,0xE97D,0xE97E,0xE97F,0xE980,0xE981,0xE982,0xE983,0xE984,0xE985,0xE986,0xE996,0xE997,0xE998,0xE999,0xE99B,0xE99C,0xE99D,0xE99E,0xE99F,0xE9A0,0xE9A1,0xE9A2,0xE9A3,0xE9A4,0xE9A7,0xE9A9,0xE9AA,0xE9AB,0xE9AC,0xE9AE,0xE9AF,0xE9B0,0xE9B1,0xE9B2,0xE9B3,0xE9B4,0xE9B5,0xE9B6,0xE9B7,0xE9B8,0xE9B9,0xE9BC,0xE9BD,0xE9BE,0xE9BF,0xE9C0,0xE9C1,0xE9c2,0xE9C3,0xE9c4]
+    hindi_leftpadding22[2] = [0x964,0x965,0x966,0x967,0x968,0x969,0x096A,0x096B,0x096C,0x096D,0x096E,0x096F]
+    hindi_leftpadding22[3] = [0x093c]
+    hindi_leftpadding22[5] = [0x903,0x941,0x946,0x948,0xE98E,0xE98F,0xE990]
+    hindi_leftpadding22[6] = [0x901,0x943,0x944,0x947,0xE97B,0xE98A,0xE98B,0xE98C,0xE98D]
+    hindi_leftpadding22[8] = [0x942,0x945,0x094D]
+    hindi_leftpadding22[11] = [0x902]
+
+    hindi_leftpadding26[0] = [0x940,0x094A,0x094B,0x094C,0xE95B,0xE95C,0xE95D,0xE95E,0xE95F,0xE987,0xE988,0xE989,0xE991,0xE992,0xE993,0xE994,0xE995,0xE9AD]
+    hindi_leftpadding26[1] = [0x904,0x905,0x906,0x907,0x908,0x909,0x90A,0x090B,0x090C,0x090D,0x090E,0x090F,0x910,0x911,0x912,0x913,0x914,0x915,0x916,0x917,0x918,0x919,0x091A,0x091B,0x091C,0x091D,0x091E,0x091F,0x920,0x921,0x922,0x923,0x924,0x925,0x926,0x927,0x928,0x929,0x092A,0x092B,0x092C,0x092D,0x092E,0x092F,0x930,0x931,0x932,0x933,0x934,0x935,0x936,0x937,0x938,0x939,0x093D,0x093E,0x093F,0x949,0x950,0x951,0x952,0x953,0x954,0x958,0x959,0x095A,0x095B,0x095C,0x095D,0x095E,0x095F,0x960,0x961,0x962,0x963,0x970,0xE900,0xE901,0xE902,0xE903,0xE904,0xE905,0xE906,0xE907,0xE908,0xE909,0xE90A,0xE90B,0xE90C,0xE90D,0xE90E,0xE90F,0xE915,0xE916,0xE917,0xE918,0xE919,0xE91A,0xE91B,0xE91C,0xE91D,0xE91E,0xE91F,0xE920,0xE921,0xE922,0xE923,0xE924,0xE925,0xE926,0xE927,0xE928,0xE929,0xE92A,0xE92B,0xE92C,0xE92D,0xE92E,0xE92F,0xE930,0xE931,0xE932,0xE933,0xE934,0xE935,0xE936,0xE937,0xE938,0xE939,0xE940,0xE941,0xE942,0xE943,0xE944,0xE945,0xE946,0xE947,0xE948,0xE949,0xE94A,0xE94B,0xE94C,0xE94D,0xE94E,0xE94F,0xE950,0xE951,0xE952,0xE953,0xE954,0xE955,0xE956,0xE957,0xE958,0xE959,0xE970,0xE971,0xE972,0xE973,0xE974,0xE975,0xE976,0xE97C,0xE97D,0xE97E,0xE97F,0xE980,0xE981,0xE982,0xE983,0xE984,0xE985,0xE986,0xE996,0xE997,0xE998,0xE999,0xE99B,0xE99C,0xE99D,0xE99E,0xE99F,0xE9A0,0xE9A1,0xE9A2,0xE9A3,0xE9A4,0xE9A7,0xE9A9,0xE9AA,0xE9AB,0xE9AC,0xE9AE,0xE9AF,0xE9B0,0xE9B1,0xE9B2,0xE9B3,0xE9B4,0xE9B5,0xE9B6,0xE9B7,0xE9B8,0xE9B9,0xE9BC,0xE9BD,0xE9BE,0xE9BF,0xE9C0,0xE9C1,0xE9c2,0xE9C3,0xE9c4]
+    hindi_leftpadding26[2] = [0x964,0x965,0x966,0x967,0x968,0x969,0x096A,0x096B,0x096C,0x096D,0x096E,0x096F]
+    hindi_leftpadding26[3] = [0x093c]
+    hindi_leftpadding26[5] = [0x903,0x941,0x946,0x948,0xE98E,0xE98F,0xE990]
+    hindi_leftpadding26[7] = [0xE97B]
+    hindi_leftpadding26[8] = [0x901,0x943,0x944,0x947,0xE98A,0xE98B,0xE98C,0xE98D]
+    hindi_leftpadding26[10] = [0x942,0x945,0x094D]
+    hindi_leftpadding26[13] = [0x902]
+
+
+def get_padding_val(font, charcode):
+    padval = 0
+    paddings = PADDING_MAP[font]
+    for i in range(len(paddings)):
+        if (charcode in paddings[i]):
+            padval = i
+            break
+    return padval
+
+ 
+
 
 class otf2bdf(object):
     __ttfname = ''
@@ -32,6 +88,7 @@ class otf2bdf(object):
     __char_width = 18
     __char_height = 18
     __char_size = 18
+    __curchar = None
     #font board box
     __fbbx = 0
     __fbby = 0
@@ -78,8 +135,6 @@ class otf2bdf(object):
                 break
             if outname.find(str(size))>=0:
                 outname = outname.replace(str(size), str(charsize))
-        if (VISUAL_MODE):
-            outname += "visual"
         return outname
                         
     def __get_font_name(self, filename):
@@ -153,8 +208,29 @@ class otf2bdf(object):
         #And bbx_xoff should not less than __fxoff
         if bbx_xoff < self.__fxoff:
             bbx_xoff = self.__fxoff
-        if (bbx_w+bbx_xoff)>dwidth:
+        if self.__is_chinese() and (bbx_w+bbx_xoff)>dwidth:
             dwidth = bbx_w + bbx_xoff
+            swidth = dwidth * 72000.0/swscale
+
+        if self.__is_devanagari():
+            #padding_val = get_padding_val('hindi'+str(self.__char_size), self.__curchar)
+            padding_val = self.__get_bbxoff_in_ref(self.__curchar)
+            if (bbx_xoff != padding_val):
+                if (dwidth == 0):
+                    dwidth = bbx_w + padding_val
+                else:
+                    dwidth += (padding_val - bbx_xoff) 
+                bbx_xoff = padding_val
+                swidth = dwidth * 72000.0/swscale
+
+
+        if self.__is_thai() and dwidth == 0:
+            print "warning: dwidth = 0"
+            if bbx_w + bbx_xoff <= 0:
+                return self.__get_missedinfo_inref(charcode)
+            dwidth = bbx_w + bbx_xoff
+            swidth = dwidth * 72000.0/swscale
+                    
 
         charinfo.append("SWIDTH %d\n" % ( swidth ))
         charinfo.append("DWIDTH %d\n" % (dwidth))
@@ -174,6 +250,7 @@ class otf2bdf(object):
         #rend bitmap buffer to match mtk requirement
         bf = bitmap.buffer
         bf = self.__align_buffer_height(bf, bitmap.rows, bitmap.pitch, (bbx_yoff - self.__fyoff))
+        bf = self.__align_buffer_with_ref(bf, bitmap.pitch)
         bf = self.__align_buffer_width(dest_byte_per_row, bitmap.pitch, bf)
         bf = self.__shift_buffer(bf, dest_byte_per_row, x_shift)
         
@@ -189,6 +266,16 @@ class otf2bdf(object):
 
     def __is_chinese(self):
         return self.__ttfname == 'SimSun.ttf'
+    def __is_acsent_from_ref(self):
+        return self.__ttfname.lower() == 'NokiaPureS40THAI_Rg_Leelawui.ttf'.lower() \
+            or self.__bdfname.lower() == 'DevanagariMT18.bdf'.lower()
+    def __is_thai(self):
+        return self.__bdfname.lower() == 'ThaiMT18.bdf'.lower()
+    def __is_gujarati(self):
+        return self.__ttfname.lower() == 'Lohit-Gujarati_Shruti_Win7.ttf'.lower()
+    def __is_devanagari(self):
+        return self.__bdfname.lower() == 'DevanagariMT18.bdf'.lower()
+
 
     def __get_dest_byte_per_row(self, bbx_w):
         bytes = (bbx_w +7)/8
@@ -199,13 +286,46 @@ class otf2bdf(object):
     def __get_dest_height(self):
         return self.__char_height
 
-    def __align_buffer_height(self, bf, rows, byte_per_row_inbuffer, bottom_indent):
-        #bottom_indent should >= 0
-        if (bottom_indent<0):
-            print ("error: bottem_indent<0")
+    def __align_buffer_with_ref(self, bf, bytes_per_row):
+        if (not self.__is_acsent_from_ref):
+            return bf
+        if (self.__curchar == 0x0937):
+            abc = 1
+        top_in_ref, bottom_in_ref = self.__get_top_in_ref()
+        top = self.__get_top(bf, bytes_per_row)
+        if (top - top_in_ref):
+            print "align wih ref"
+            bottom = self.__get_bottom(bf, bytes_per_row)
+            if (bottom - top) != (bottom_in_ref - top_in_ref):
+                print (str(self.__curchar) + " height not mattched!")
+        
+        bf = self.__align_buffer_height(bf, self.__char_height, bytes_per_row, top - top_in_ref)
+        return bf;
 
+    def __get_top(self, bf, bytes_per_row):
+        for i in range(self.__char_height):
+            for j in range(bytes_per_row):
+                if bf[i*bytes_per_row +j]:
+                    return i
+        return 0
+    def __get_bottom(self, bf, bytes_per_row):
+        for i in range(self.__char_height,0,-1):
+            for j in range(bytes_per_row):
+                if bf[(i-1)*bytes_per_row +j]:
+                    return i-1
+        return 0
+ 
+    def __get_top_in_ref(self):
+        char_content = self.__get_code_content_in_ref(self.__curchar)
+        bf, bytes_per_row = self.__get_bytes_buffer(char_content)
+        
+        return self.__get_top(bf, bytes_per_row), self.__get_bottom(bf, bytes_per_row);
+
+    def __align_buffer_height(self, bf, rows, byte_per_row_inbuffer, bottom_indent):
         if (self.__ymax + bottom_indent) > self.__char_height:
             bottom_indent = max(self.__char_height - self.__ymax, 0)
+        if (self.__ymin + bottom_indent) < 0:
+            bottom_indent = -self.__ymin
 
         top_indent = (self.__char_height - rows - bottom_indent)
         newbf = bf
@@ -216,8 +336,13 @@ class otf2bdf(object):
             for i in range(top_indent*byte_per_row_inbuffer):
                 newbf.insert(0,0)
 
-        for i in range(bottom_indent*byte_per_row_inbuffer):
-            newbf.append(0)
+        if (bottom_indent > 0):
+            for i in range(bottom_indent*byte_per_row_inbuffer):
+                newbf.append(0)
+
+        #Update ymax and ymin, used in align buffer in height, to avoid discarding real point
+        self.__ymax = self.__char_height - self.__get_top(newbf, byte_per_row_inbuffer)
+        self.__ymin = self.__char_height - self.__get_bottom(newbf, byte_per_row_inbuffer) -1
 
         return newbf
 
@@ -236,6 +361,7 @@ class otf2bdf(object):
                 bf = newbf
         return bf
 
+    #shift bitmap buffer x_shift right
     def __shift_buffer(self, bf, byte_per_row, x_shift):
         if (x_shift<=0):
             return bf
@@ -301,6 +427,8 @@ class otf2bdf(object):
 
         self.__font_dscent = bbx_maxds
         self.__font_ascent = self.__char_height - bbx_maxds
+        if self.__is_acsent_from_ref():
+            self.__get_ascent_inref()
 
     def __get_bounding(self, bitmap, left, top):
         sx = sy = 0xffff;
@@ -335,8 +463,8 @@ class otf2bdf(object):
         wd = ex
         xoff = left
         #used in align buffer in height, to avoid discarding real point
-        self.__ymin = sy
-        self.__ymax = ey
+        self.__ymin = bitmap.rows - ey
+        self.__ymax = bitmap.rows - sy
 #        yoff = top - bitmap.rows
         #MTK addition requirment: the FONTBOUNDINGBOX xoff should be 0, so here xoff shouldnot be less than 0
         if (xoff < 0):
@@ -369,12 +497,10 @@ class otf2bdf(object):
             code_list_ret.append(charcode)
         return code_list_ret
 
-    def __is_gujarati(self):
-        return self.__ttfname.lower() == 'Lohit-Gujarati_Shruti_Win7.ttf'.lower()
 
     def __get_face(self, filename, width, height):
         face = Face(self.__ttfdir+filename)
-        if (self.__is_gujarati()):
+        if (self.__is_gujarati() or self.__is_devanagari()):
             width -= width/6
             height -= height/6
 
@@ -386,7 +512,29 @@ class otf2bdf(object):
         print("family_name = %s" % face.family_name)
         return face
 
+    def __get_ascent_inref(self):
+        bdfname = self.__get_out_name(self.__bdfname, self.__char_size)
+        inputfile = open(self.__bdfdir+bdfname,'r')
+        all_the_text = inputfile.read()
+        inputfile.close()
+        
+        asc = re.findall(r'(?<=FONT_ASCENT )\d+', all_the_text)
+        if (len(asc)>0):
+            ascv = int(asc[0], 10)
+            self.__font_ascent = ascv
+            self.__font_dscent = self.__char_height - ascv
+            self.__fyoff = -self.__font_dscent
+
+
+
+    #Try to use the definition in reference bdf file for those unicode char missed in ttf
     def __get_missedinfo_inref(self, code):
+        char_content = self.__get_code_content_in_ref(code)
+        if char_content:
+           char_content = self.__render_bitmap_info(char_content)
+        return char_content
+
+    def __get_code_content_in_ref(self, code):
         bdfname = self.__get_out_name(self.__bdfname, self.__char_size)
         inputfile = open(self.__bdfdir+bdfname,'r')
         all_the_text = inputfile.read()
@@ -398,25 +546,78 @@ class otf2bdf(object):
         matchres = re.search(matchstr, all_the_text, re.IGNORECASE)
         if matchres:
             char_content = matchres.groups()[0]
-        #change the bbx_of to the converted value
-        repattern = r'(BBX \d+ \d+ \d+ )(-?\d+)'
+        return char_content
+
+    def __get_bbxoff_in_ref(self, code):
+        char_content = self.__get_code_content_in_ref(code)
+        bbxoff = 0
+        repattern = r'(BBX (\d+) (\d+) (\d+) )(-?\d+)'
         matchres = re.search(repattern, char_content)
         if matchres:
+            bbxoff = int( matchres.groups()[3], 10)
+
+        return bbxoff
+
+    def __get_bytes_buffer(self, char_content):
+        bf = []
+        byte_per_row = 0
+
+        buffer_pattern = r'BITMAP\n((([0-9a-fA-F]+)\n)+)ENDCHAR'
+        matchres = re.search(buffer_pattern, char_content)
+        if (matchres):
+            bf_str = matchres.group(1)
+            bfs = re.findall(r'[0-9a-fA-F]+', bf_str)
+
+            rows = len(bfs)
+            #get bitmap buffer in file
+            for line in bfs:
+                bytes = re.findall(r'.{2}', line)
+                for byte in bytes:
+                    value = int(byte,16)
+                    bf.append(value)
+            byte_per_row = len(bf)/rows
+
+        return bf, byte_per_row
+
+    def __render_bitmap_info(self, char_content):
+        #change the bbx_of to the converted value
+        repattern = r'(BBX (\d+) (\d+) (\d+) )(-?\d+)'
+        matchres = re.search(repattern, char_content)
+        if matchres:
+            bbyoff = int( matchres.groups()[4], 10)
             replacestr = matchres.groups()[0] + str(self.__fyoff)
             #extend FBBX if need
-            width_pattern = r'BBX (\d+) \d+ (\d+)'
-            res2 = re.search(width_pattern, char_content)
-            if res2:
-                width = int(res2.groups()[0],10) + int(res2.groups()[1])
-                if (width > self.__fbbx):
-                    self.__fbbx = width
+            width = int(matchres.groups()[1],10) + int(matchres.groups()[3])
+            if (width > self.__fbbx):
+                self.__fbbx = width
 
-
-        char_content = re.sub(repattern, replacestr, char_content)
-        #TODO: buffer may need to shift up/down
+            char_content = re.sub(repattern, replacestr, char_content)
+            char_content = self.__render_bitmap_buffer(char_content, bbyoff-self.__fyoff)
         return char_content
-        
+ 
+    def __render_bitmap_buffer(self, char_content, bottom_intent ):
+        bf, byte_per_row = self.__get_bytes_buffer(char_content)
 
+        #used in align buffer in height, to avoid discarding real point
+        self.__ymax = self.__char_height - self.__get_top(bf, byte_per_row)
+        self.__ymin = self.__char_height - self.__get_bottom(bf, byte_per_row) -1
+
+        # align the buffer with new bbyoff
+        bf = self.__align_buffer_height(bf, self.__char_height, byte_per_row, bottom_intent)
+
+        # return the BITMAP 
+        bf_str_list=['BITMAP']
+        for j in range(self.__char_height):
+            line = ''
+            for i in range(byte_per_row):
+                line += "%02lx" % bf[j*byte_per_row + i]
+            bf_str_list.append(line)
+        bf_str_list.append('ENDCHAR')
+
+        buffer_pattern = r'BITMAP\n((([0-9a-fA-F]+)\n)+)ENDCHAR'
+        char_content = re.sub(buffer_pattern, '\n'.join(bf_str_list), char_content)
+        return char_content
+ 
     def __convert_to_bdf_with_code(self, face, codelist):
         content = []
         slot = face.glyph
@@ -462,7 +663,10 @@ class otf2bdf(object):
             self.__font_name = self.__get_font_name(self.__bdfname)
             codeused = self.__get_code_in_bdf(self.__bdfname)
             self.__save_unicode_str(self.__bdfname+"usedcode.txt", ''.join(map(uni_info, codeused)))
+
             outputfile = self.__get_out_name(self.__bdfname, charsize)
+            if (VISUAL_MODE):
+                outputfile += "visual"
 
             self.__get_font_bounding(face, codeused)
 
@@ -478,7 +682,7 @@ def font_matching_convert():
         'Lohit-Oriya_kalinga.ttf':['OriyaMT18.bdf'],
         'mm3_ZawgyiOne2015.ttf':['MyanmarZawgyi18.bdf'],
         'Lohit-Punjabi_Raavi.TTF':['GurmukhiMT18.bdf'],
-#        'SimSun.ttf':['CESI_1718_GB2312.bdf','CESI_1718.bdf'],
+        'SimSun.ttf':['CESI_1718_GB2312.bdf','CESI_1718.bdf'],
         'NokiaPureS40ARAB_Rg_Segoe_UI.ttf':['ArabicMT18.bdf'],
         'NokiaPureS40CYRL_Rg_Segoe_UI.ttf':['nsnrCyrillic18.bdf'],
         'NokiaPureS40LATN_Rg_Segoe_UI.ttf':['NOSNR18.bdf'],
@@ -496,12 +700,12 @@ def font_matching_convert():
         'NokiaPureS40TELU_Rg_Gautami_Win7.ttf':['TeluguMT18.bdf'],
         'NokiaPureS40THAI_Rg_Leelawui.ttf':['ThaiMT18.bdf'],
     }
-    font__match_table = {
-        'SimSun.ttf':['CESI_1718_GB2312.bdf','CESI_1718.bdf'],
-    } 
     #font__match_table = {
-    #     'Lohit-Gujarati_Shruti_Win7.TTF':['GujaratiMT18.bdf'],
+    #    'SimSun.ttf':['CESI_1718_GB2312.bdf','CESI_1718.bdf'],
     #} 
+    font__match_table = {
+        'NokiaPureS40DEVA_Rg_Mangal_Win7.ttf':['DevanagariMT18.bdf'],
+    } 
     for fontfile in font__match_table.keys():
         filter_file_list = font__match_table[fontfile]
         for filter_file in filter_file_list:
@@ -509,10 +713,14 @@ def font_matching_convert():
             convertor.do_convert()
             
 
+def uni_info(code):
+    return unicode(hex(code)) + u':' + unichr(code) + u'  '
+
 def main():
     #ttf files should be put under .\ttf , origial bdf files should be put under .\bdf, 
     #converted bdf files will be saved to .\out
     global VISUAL_MODE
+
     opts, args = getopt.getopt(sys.argv[1:], "hv", ["help", "visual"])
 
     for op, value in opts:
@@ -522,6 +730,7 @@ def main():
             usage()
             sys.exit()
 
+    init_padding()
     logging.basicConfig(level=logging.DEBUG,
                 format='%(asctime)s [line:%(lineno)d] %(levelname)s %(message)s',
                 datefmt='%a, %d %b %Y %H:%M:%S',
@@ -539,8 +748,25 @@ def main():
     logging.info('********************End process******************************')
 
 
-
+class A(object):
+    def __init__(self):
+        self.x = 10
+    def increase(self):
+        self.do_increase()
+        print "x is " + str(self.x)
+    def do_increase(self):
+        print "in A"
+        self.x+=1
+class B(A):
+    def do_increase(self):
+        print "in B"
+        self.x += 2
 if __name__ == "__main__":
+    #a = A()
+    #b = B()
+    #a.increase()
+    #b.increase()
+
     main()
 
 
