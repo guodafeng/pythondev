@@ -1,5 +1,6 @@
 import pickle
 import re
+import printascii
 
 def _isupper(str):
     upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -111,6 +112,7 @@ def level6():
     print 'level 6'
 
 def main():
+    printascii.print_ascii()
     level0()
     str = "g fmnc wms bgblr rpylqjyrc gr zw fylb. rfyrq ufyr amknsrcpq ypc dmp. bmgle gr gl zw fylb gq glcddgagclr ylb rfyr'q ufw rfgq rcvr gq qm jmle. sqgle qrpgle.kyicrpylq() gq pcamkkclbcb. lmu ynnjw ml rfc spj."
     level1(str)

@@ -31,7 +31,11 @@ def get_used_code_fromdat(filelist):
 #    save_list_byline("tout3.txt", code_list_ret)
     return code_list_ret
 
-
+def get_additional_code():
+    #codes below might be combined by those codes used in dat file
+    #so should be include in output as well
+    combined_codes = ['E900','E903','E907','E90C','E915','E927','E928','E92A','E932','E936','E937','E938','E95F','E97E','E97F','E980','E982','E987','E988','E98B','E98E','E991','E993','E997','E9A7']
+    return combined_codes
 
 def filter_code_in_fontfile(filename, codelist):
     logging.info('**********Start filter ' + filename)
@@ -139,6 +143,7 @@ def matchingtable_filter():
         used_code_list = get_used_code_fromdat(file_match_table[fontfile])
         save_list_byline(fontfile+'usedcode.txt', used_code_list)
 
+        used_code_list.extend(get_additional_code())
         clipped_content = filter_code_in_fontfile(fontfile, used_code_list)
         print ("Clipping " + fontfile)
         save_str(fontfile, clipped_content)    
@@ -149,6 +154,8 @@ def allused_filter():
     print ("Get all used unicode under txt folder...")
     used_code_list = get_used_code_fromdat(datfiles)
     save_list_byline('allusedcode.txt', used_code_list)
+
+    used_code_list.extend(get_additional_code())
 
     bdffiles = get_filename_list('.\\bdf\\')
     for fontfile in bdffiles:
@@ -169,8 +176,8 @@ def main():
     if not os.path.exists(path):
         os.mkdir(path)
 
-    matchingtable_filter()
-    #allused_filter()
+    #matchingtable_filter()
+    allused_filter()
 
        
 
