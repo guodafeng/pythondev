@@ -26,9 +26,22 @@ def d_print(info):
         return
     print info
 
+def fulldatapath(filename):
+    return ".\\data\\" + filename
+
+def save_list(filename, lines, param = 'w'):
+    fh = open(fulldatapath(filename), param)
+    fh.writelines('\n'.join(lines))
+    fh.close()
+def read_list_in_file(filename):
+    fh = open(fulldatapath(filename), 'r')
+    lines = fh.readlines()
+    fh.close()
+    return lines
+
 class SpellingReplacer(object):
     def __init__(self, dict_name = 'en_US', mywords = 'mywords.txt', max_dist = 2):
-        self.spell_dict = enchant.DictWithPWL(dict_name, mywords)
+        self.spell_dict = enchant.DictWithPWL(dict_name, fulldatapath(mywords))
         self.max_dist = 2
 
     def replace(self, word):
@@ -55,7 +68,7 @@ def termdocumentmatrix(doclines):
     # for cutoff is 2, since we usually aren't interested in words which
     # appear in a single document. For this example we want to see all
     # words however, hence cutoff=1.
-    tdm.write_csv('matrix.csv', cutoff=1)
+    tdm.write_csv(fulldatapath('matrix.csv'), cutoff=1)
     # Instead of writing out the matrix you can also access its rows directly.
     return [row for row in tdm.rows(cutoff=1)]
 
@@ -154,11 +167,9 @@ def create_dict(sentences):
 
 
 def load_dict(filename):
-    fh = open(filename, 'r')
-    words = fh.readlines()
+    words = read_list_in_file(filename)
     words = [word.rstrip() for word in words]
     print words[:10]
-    fh.close()
     words_dict = dict(zip(words, [0 for word in words]))
     return words_dict
 
@@ -181,9 +192,8 @@ class CsvInfo(object):
     content_list = []
     def __init__(self, filename):
         self.__filename = filename
-        fh = open(filename, 'r')
-        self.content_list = fh.readlines()
-        fh.close()
+        self.content_list = read_list_in_file(filename)
+
         self.__feedbacks,self.__labels,self.__emotions=self.getcolumns()
 
     def match_pattern(self):
@@ -258,16 +268,9 @@ class CsvInfo_NoLabel(CsvInfo):
    def match_pattern(self):
        return r'\d+,\d+,(.+)'
 
-def save_list(filename, lines, param = 'w'):
-    fh = open(filename, param)
-    fh.writelines('\n'.join(lines))
-    fh.close()
-
 
 def create_and_save_dict():
-    fh = open("feedback.txt", 'r')
-    lines = fh.readlines()
-    fh.close()
+    lines = read_list_in_file("feedback.txt")
     words_dict = create_dict(lines)
     save_list("mydict.txt", words_dict.keys())
     save_list("wrong_words.txt", wrong_words)
@@ -286,11 +289,11 @@ def create_dtm_from_csv():
 
 
 def test_csvinfo():
-    csvinfo = CsvInfo_NoLabel(r"data\filtered_2000.csv")
+    csvinfo = CsvInfo_NoLabel("filtered_2000_0426.csv")
     feedbacks = csvinfo.getfeedbacks()
     print "From non labeled file, print the first 20 feedbacks"
     print feedbacks[:20]
-    csvinfo = CsvInfo(r"data\filtered_300_classify.csv")
+    csvinfo = CsvInfo("filtered_300_classify.csv")
     feedbacks = csvinfo.getfeedbacks()
     print "From labeled file: print the first 20 feedbacks"
     print feedbacks[:20]
@@ -331,5 +334,5 @@ if __name__ == "__main__":
 #    sys.setdefaultencoding('utf8')
     #create_and_save_dict()
     #create_dtm_from_csv()
-    #classify_bayes()
-    test_csvinfo()
+    classify_bayes()
+    #test_csvinfo()
