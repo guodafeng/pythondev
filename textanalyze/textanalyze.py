@@ -151,7 +151,8 @@ def create_dict(sentences):
     for sent in sentences:
         count += 1
         if count%cent_len==0:
-            print count/cent_len
+            print "\B\B",
+            print count/cent_len,
         allwords.extend(tokenize_only(sent))
 
     allwords = remove_wrong_words(allwords)
@@ -169,7 +170,7 @@ def create_dict(sentences):
 def load_dict(filename):
     words = read_list_in_file(filename)
     words = [word.rstrip() for word in words]
-    print words[:10]
+    #print words[:10]
     words_dict = dict(zip(words, [0 for word in words]))
     return words_dict
 
@@ -187,6 +188,34 @@ def create_matrix_with_dict(lines, words_dict):
 
     return matrix
 
+class DataSelector(object):
+    def __init__(self, filename):
+        self._filename = filename
+        self._content_list = read_list_in_file(filename)
+        self._id_lines = []
+        #get id list with format (id, subid, fullline)
+        pattern = r'(\d+),(\d+),(.+)'
+        for line in self._content_list:
+            res = re.search(pattern, line)
+            if res:
+                self._id_lines.append((res.groups()[0],res.groups()[1], line))
+
+    def get_id_lines(self):
+        return self._id_lines
+
+    def random_select(self, data_count, not_in_ids):
+        import random
+        random.shuffle(self._id_lines)
+        count = 0
+        selected = []
+        for row in self._id_lines:
+            if row[0] not in not_in_ids:
+                count += 1
+                selected.append(row[2].rstrip())
+            if count > data_count:
+                break
+        save_list("selected_informative_feedback.txt", selected)
+
 
 class CsvInfo(object):
     content_list = []
@@ -195,6 +224,7 @@ class CsvInfo(object):
         self.content_list = read_list_in_file(filename)
 
         self.__feedbacks,self.__labels,self.__emotions=self.getcolumns()
+        self.__dtm, self.__dtm_freq = self.create_DTM_with_dict()
 
     def match_pattern(self):
         return r'\d+,\d+,(.+),(\d+) - .+,(-?\d+)'
@@ -224,6 +254,10 @@ class CsvInfo(object):
     def get_01_labels(self):
         lables_01 = [val if val==0 else 1 for val in self.__labels]
         return lables_01
+    def get_dtm(self):
+        return self.__dtm
+    def get_dtm_freq(self):
+        return self.__dtm_freq
 
     def caculate_freq_dtm(self, dtm):
         #caculate frequnce dtm using tfi,j =  rfi,j/sum(rf0..m,j)
@@ -240,6 +274,13 @@ class CsvInfo(object):
 
             dtm_freq.append(freqs)
         return dtm_freq
+
+    def filter_by_clf(self, preds):
+        filtered = []
+        for i in range(len(preds)):
+            if preds[i] > 0:
+                filtered.append(self.content_list[i].rstrip())
+        save_list("informativefeedback.txt", filtered)
 
     def create_DTM_with_dict(self,dictname = 'mydict.txt'):
         tdm = textmining.TermDocumentMatrix()
@@ -268,7 +309,15 @@ class CsvInfo_NoLabel(CsvInfo):
    def match_pattern(self):
        return r'\d+,\d+,(.+)'
 
+def load_dtm(filename):
+    lines = read_list_in_file(filename)
+    matrix = []
+    for line in lines[1:]:
+        nums = line.split(',')
+        matrix.append([int(num) for num in nums])
+    return matrix
 
+# test code below
 def create_and_save_dict():
     lines = read_list_in_file("feedback.txt")
     words_dict = create_dict(lines)
@@ -278,7 +327,8 @@ def create_and_save_dict():
 def create_dtm_from_csv():
     #nltk.download()
     csvinfo = CsvInfo("filtered_300_classify.csv")
-    dtm, dtm_freq = csvinfo.create_DTM_with_dict()
+    dtm = csvinfo.get_dtm()
+
     if len(dtm) != len(csvinfo.getlabels()):
         print "WARNING!!!"
     print dtm
@@ -299,40 +349,88 @@ def test_csvinfo():
     print feedbacks[:20]
 
 
-def classify_bayes():
+# return trained bayers classifier
+def train_clf():
     csvinfo = CsvInfo("filtered_300_classify.csv")
-    dtm, dtm_freq = csvinfo.create_DTM_with_dict()
-    #dtm, dtm_freq = csvinfo.create_DTM()
+    dtm = csvinfo.get_dtm()
     if len(dtm) != len(csvinfo.getlabels()):
         print "WARNING!!!"
-    labels01 = csvinfo.get_01_labels()
 
-    X = np.array(dtm[:250])
-    Y = np.array(labels01[:250])
+    labels01 = csvinfo.get_01_labels()
+    labels = csvinfo.getlabels()
+
+    X = np.array(dtm)
+    Y = np.array(labels01)
 
     # Create Naive Bayes classifier and train
+    clf01 = GaussianNB()
+    clf01.fit(X, Y)
+
+    Y = np.array(labels)
     clf = GaussianNB()
     clf.fit(X, Y)
 
-    predicts = clf.predict(dtm[250:300])
+    return csvinfo, clf01, clf
 
-    from sklearn.metrics import classification_report
-    target_name=['non-informative', 'informative']
-    print(classification_report(predicts, labels01[250:300], target_names=target_name))
+def test_clf():
+    csvinfo, clf01, clf  = train_clf()
+    dtm = csvinfo.get_dtm()
+    feedbacks = csvinfo.getfeedbacks()
+    labels01 = csvinfo.get_01_labels()
 
-    cls_labels = csvinfo.getlabels()
-    Y = np.array(cls_labels[:250])
-    clf.fit(X, Y)
-    predicts = clf.predict(dtm[250:300])
-    target_name = ['non-', 'other', 'giving', 'seeking', 'feature','problem']
-    print(classification_report(predicts, cls_labels[250:300], target_names=target_name))
+    # test classifier
+    target_names01=['non-informative', 'informative']
+    target_names = ['non-', 'other', 'giving', 'seeking', 'feature','problem']
 
-    print zip(predicts, cls_labels[250:300])
-#    print "Accuracy Rate, which is calculated by accuracy_score() is: %f" % accuracy_score(labels01[250:300], predicts)
+    # do_test_clf(clf, csvinfo.getfeedbacks(), dtm, labels, target_names)
+    do_test_clf(clf01, feedbacks[250:300], dtm[250:300], labels01[250:300], target_names01)
+
+def do_test_clf(clf, feedbacks, dtm, labels, target_names):
+    predicts = clf.predict(dtm)
+
+    if (len(labels)):
+        from sklearn.metrics import classification_report
+        print(classification_report(predicts, labels, target_names=target_names))
+        print zip(predicts, labels)
+
+    results = zip(feedbacks, predicts)
+    for res in results:
+        print res[0] + ":" + str(res[1]) + "-" + target_names[res[1]]
+#
+def filter_informative():
+    csvinfo, clf01, clf = train_clf()
+
+    csvinfo_test = CsvInfo_NoLabel("allfiltered.txt")
+    dtm = csvinfo_test.get_dtm()
+
+    preds = []
+    step_size = len(dtm)/100 + 1
+    for i in range(100):
+        pred_part = clf01.predict(dtm[i*step_size:(i+1)*step_size])
+        preds.extend(pred_part)
+        print "\r",
+        print i,
+
+    csvinfo_test.filter_by_clf(preds)
+
+
+def random_select_feedback():
+    filter = DataSelector("filtered_300_classify.csv")
+
+    filter_ids = filter.get_id_lines()
+    filter_ids = [row[0] for row in filter_ids]
+
+    selector = DataSelector("informativefeedback.txt")
+    selector.random_select(2000, filter_ids)
+
 if __name__ == "__main__":
 #    reload(sys)  
 #    sys.setdefaultencoding('utf8')
     #create_and_save_dict()
     #create_dtm_from_csv()
-    classify_bayes()
     #test_csvinfo()
+    #test_clf()
+    #train_clf()
+    #filter_informative()
+    random_select_feedback()
+
