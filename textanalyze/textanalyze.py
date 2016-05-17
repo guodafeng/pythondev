@@ -22,7 +22,15 @@ from nltk.stem.snowball import SnowballStemmer
 stemmer = SnowballStemmer("english")   
 
 
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
 class SpellingReplacer(object):
+    __metaclass__ = Singleton
     def __init__(self, dict_name = 'en_US', mywords = 'mywords.txt', max_dist = 2):
         self.spell_dict = enchant.DictWithPWL(dict_name, fulldatapath(mywords))
         self.max_dist = 2
@@ -39,9 +47,13 @@ class SpellingReplacer(object):
     def testword(self, word):
         return self.spell_dict.check(word)
 
-
 class SpellingCheck(object):
+    __metaclass__ = Singleton
+
     _mydict = set()
+    def __init__(self, filename = 'my_en_us.pic'):
+        self.load_dict(filename)
+
     def add_dict_file(self, filename):
         lines = read_list_in_file(filename)
         for line in lines:
@@ -84,7 +96,6 @@ class DataSelector(object):
             if count > data_count:
                 break
         save_list("selected_informative_feedback.txt", selected)
-
 
 class CsvInfo(object):
     content_list = []
@@ -254,9 +265,7 @@ def correct_words(words):
 
 def remove_wrong_words(words):
     outwords = []
-    correcter = SpellingReplacer()
     tester = SpellingCheck()
-    tester.load_dict("my_en_us.pic")
     for word in words:
         if tester.check_word(word): # or words.count(word)>2:
             outwords.append(word)
@@ -280,15 +289,16 @@ def mergelist(ls1, ls2):
 def is_ascii(s):
     return all(ord(c) < 128 for c in s)
 
-MYDICT = SpellingCheck()
-MYDICT.load_dict("my_en_us.pic")
-
 def is_wrong_sentence(line):
     words = tokenize_only(line)
     wrong_num = 0
     for word in words:
-        if not MYDICT.check_word(word):
+        if not SpellingCheck().check_word(word):
             wrong_num += 1
+
+    #if (len(words)*4 > len(line)) and wrong_num*3<=len(words):
+    if wrong_num*3>len(words):
+        print "possible wrong line:" + line
     return wrong_num * 3 > len(words)
 
 def create_word_count_map(words):
@@ -371,7 +381,6 @@ def create_userdefined_words():
 
     wrong_but_repeated = []
     tester = SpellingCheck()
-    tester.load_dict("my_en_us.pic")
     print tester.check_word("this")
     for word in word_count_map:
         if (not tester.check_word(word)) and word_count_map[word]>=3:
@@ -505,7 +514,6 @@ def test_my_own_dic():
     print mydict.check_word("thinner")
     mydict.save_dict("my_en_us.pic")
     mydict2 = SpellingCheck()
-    mydict2.load_dict("my_en_us.pic")
     print "java is in: " + str(mydict2.check_word("java"))
 
 def filter_wrong_sentences():
@@ -527,3 +535,4 @@ if __name__ == "__main__":
     #create_userdefined_words()
     #test_my_own_dic()
     filter_wrong_sentences()
+    #print is_wrong_sentence("Kh?ng chay duoc nh?ng ung du?ng co? java")
