@@ -3,6 +3,7 @@ import textmining
 import nltk
 import re
 import os
+import collections
 import codecs
 import enchant
 from nltk.metrics import edit_distance
@@ -31,27 +32,34 @@ class Singleton(type):
 
 class SpellingReplacer(object):
     __metaclass__ = Singleton
-    def __init__(self, dict_name = 'en_US', mywords = 'mywords.txt', max_dist = 2):
+    def __init__(self, dict_name = 'en_US', mywords = 'mywords.txt', max_dist = 1):
         self.spell_dict = enchant.DictWithPWL(dict_name, fulldatapath(mywords))
-        self.max_dist = 2
+        self.max_dist = max_dist
 
-    def replace(self, word):
-        if len(word)<3 or self.spell_dict.check(word):
+    def correct(self, word):
+        # used distance for correcting word
+        dist = len(word)/3 + 1
+        if  SpellingCheck().check_word(word):
             return word
-        suggestions = self.spell_dict.suggest(word)
 
-        if suggestions and edit_distance(word, suggestions[0]) <= self.max_dist:
+        suggestions = self.spell_dict.suggest(word)
+        if word == 'amprove':
+            print "correct word amprove to:"
+            print suggestions[0]
+        if suggestions and edit_distance(word, suggestions[0]) <= dist:
             return suggestions[0]
         else:
             return word
+
     def testword(self, word):
         return self.spell_dict.check(word)
 
 class SpellingCheck(object):
     __metaclass__ = Singleton
 
-    _mydict = set()
     def __init__(self, filename = 'my_en_us.pic'):
+        self._mydict = set()
+
         self.load_dict(filename)
 
     def add_dict_file(self, filename):
@@ -60,14 +68,73 @@ class SpellingCheck(object):
             self._mydict.add(line.rstrip().split('/')[0].lower())
     def save_dict(self, filename):
         import pickle
+        filename = fulldatapath(filename)
         with open(filename, 'wb') as fh:
             pickle.dump(self._mydict, fh, protocol=pickle.HIGHEST_PROTOCOL)
     def load_dict(self, filename):
         import pickle
-        with open(filename, 'rb') as fh:
-            self._mydict = pickle.load(fh)
+        filename = fulldatapath(filename)
+        if os.path.exists(filename):
+            with open(filename, 'rb') as fh:
+                self._mydict = pickle.load(fh)
+
     def check_word(self, word):
         return word.lower() in self._mydict
+
+class SpellCorrecter(object):
+    __metaclass__ = Singleton
+    def __init__(self):
+        self.model = collections.defaultdict(lambda: 1)
+        self.NWORDS = self.train(self.words(file(fulldatapath('big.txt')).read()))
+        self.NWORDS = self.train(self.words(file(fulldatapath('original_feedback_with_ids_en.csv')).read()))
+        self.words_map = self.load_word_map('mywordsmap.txt')
+        self.alphabet = 'abcdefghijklmnopqrstuvwxyz\''
+
+    def load_word_map(self, filename):
+        lines = read_list_in_file(filename)
+        words_map = {}
+        for line in lines:
+            line = line.rstrip()
+            words = line.split(':')
+            words_map[words[0]] = words[1]
+        return words_map
+
+    def words(self,text): return re.findall('[a-z\']+', text.lower())
+
+    def train(self, features):
+        for f in features:
+            if SpellingCheck().check_word(f):
+                self.model[f] += 1
+        return self.model
+
+    def edits1(self, word):
+       splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+       deletes    = [a + b[1:] for a, b in splits if b]
+       transposes = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b)>1]
+       replaces   = [a + c + b[1:] for a, b in splits for c in self.alphabet if b]
+       inserts    = [a + c + b     for a, b in splits for c in self.alphabet]
+       return set(deletes + transposes + replaces + inserts)
+
+    def known_edits2(self, word):
+        return set(e2 for e1 in self.edits1(word) for e2 in self.edits1(e1) if e2 in self.NWORDS)
+
+    def known(self, words): return set(w for w in words if w in self.NWORDS)
+
+    def correct(self, word):
+        if  SpellingCheck().check_word(word):
+            return word
+        if word in self.words_map:
+            return self.words_map[word]
+
+        candidates = self.known([word]) or self.known(self.edits1(word)) or self.known_edits2(word) or [word]
+        candidate = max(candidates, key=self.NWORDS.get)
+
+        dist = len(word)/5 + 1
+        if  edit_distance(word, candidate) <= dist:
+            return candidate
+        else:
+            return word
+
 
 class DataSelector(object):
     def __init__(self, filename):
@@ -77,53 +144,56 @@ class DataSelector(object):
         #get id list with format (id, subid, fullline)
         pattern = r'(\d+),(\d+),(.+)'
         for line in self._content_list:
+            line = line.rstrip()
             res = re.search(pattern, line)
             if res:
                 self._id_lines.append((res.groups()[0],res.groups()[1], line))
 
     def get_id_lines(self):
         return self._id_lines
+    def get_ids(self):
+        return [(row[0], row[1]) for row in self._id_lines]
 
-    def random_select(self, data_count, not_in_ids):
+    def filter_out(self, exclude_ids):
+        return [row[2] for row in self._id_lines if (row[0],row[1]) not in exclude_ids]
+
+    def random_select(self, data_count, exclude_ids):
         import random
         random.shuffle(self._id_lines)
-        count = 0
-        selected = []
-        for row in self._id_lines:
-            if row[0] not in not_in_ids:
-                count += 1
-                selected.append(row[2].rstrip())
-            if count > data_count:
-                break
-        save_list("selected_informative_feedback.txt", selected)
+        filtered_rows = self.filter_out(exclude_ids)
+        return filtered_rows[:data_count]
 
 class CsvInfo(object):
-    content_list = []
-    def __init__(self, filename):
+    def __init__(self, filename, create_dtm = True):
         self.__filename = filename
         self.content_list = read_list_in_file(filename)
 
-        self.__feedbacks,self.__labels,self.__emotions=self.getcolumns()
-        self.__dtm, self.__dtm_freq = self.create_DTM_with_dict()
+        self._ids,self._subids,self.__feedbacks,self.__labels,self.__emotions=self.getcolumns()
+        if create_dtm:
+            self.__dtm, self.__dtm_freq = self.create_DTM_with_dict()
 
     def match_pattern(self):
-        return r'\d+,\d+,(.+),(\d+) - .+,(-?\d+)'
+        return r'(\d+),(\d+),(.+),(\d+) - .+,(-?\d+)'
     def getcolumns(self):
+        ids = []
+        subids = []
         feedbacks = []
         labels = []
         emotions = []
         for line in self.content_list:
             result = re.search(self.match_pattern(), line)
             if result:
-                feedback = result.groups()[0]
+                ids.append(result.groups()[0])
+                subids.append(result.groups()[1])
+                feedback = result.groups()[2]
                 feedbacks.append(feedback)
-                if len(result.groups())>=3:
-                    labels.append(int(result.groups()[1]))
-                    emotions.append(int(result.groups()[2]))
+                if len(result.groups())>=5:
+                    labels.append(int(result.groups()[3]))
+                    emotions.append(int(result.groups()[4]))
             else:
                 print 'warning: mismatch----' + line
 
-        return feedbacks, labels, emotions
+        return ids, subids, feedbacks, labels, emotions
     def getfeedbacks(self):
         return self.__feedbacks
 
@@ -162,7 +232,7 @@ class CsvInfo(object):
                 filtered.append(self.content_list[i].rstrip())
         save_list("informativefeedback.txt", filtered)
 
-    def create_DTM_with_dict(self,dictname = 'mydict.txt'):
+    def create_DTM_with_dict(self,dictname = 'dtmdict.txt'):
         tdm = textmining.TermDocumentMatrix()
 
         feedbacks = self.getfeedbacks()
@@ -185,9 +255,25 @@ class CsvInfo(object):
         dtm_freq = self.caculate_freq_dtm(dtm)
         return dtm, dtm_freq
 
+    def correct_feedback(self):
+        new_contents = []
+        for line in self.__feedbacks:
+            words = tokenize_only(line)
+            for word in words:
+                #corrected = SpellingReplacer().correct(word)
+                corrected = SpellCorrecter().correct(word)
+                if corrected != word:
+                    print "correct %s to %s" %(word, corrected)
+                    line = line.replace(word, corrected)
+            new_contents.append(line)
+        new_filelines = zip(self._ids, self._subids, self.__feedbacks, new_contents)
+        new_filelines = ['^'.join(newline) for newline in new_filelines]
+        save_list("corrected_feedbacks.txt", new_filelines)
+
+
 class CsvInfo_NoLabel(CsvInfo):
    def match_pattern(self):
-       return r'\d+,\d+,(.+)'
+       return r'(\d+),(\d+),(.+)'
 
 def d_print(info):
     if D_LEVEL==0:
@@ -224,7 +310,7 @@ def termdocumentmatrix(doclines):
 
 # here I define a tokenizer and stemmer which returns the set of stems in the text that it is passed
 def tokenize_and_stem(text):
-    return remove_stopwords(stem_words(tokenize_only(text)))
+    return remove_stopwords(stem_words(correct_words(tokenize_only(text))))
 
 def stem_words(words):
     stems = [stemmer.stem(t) for t in words]
@@ -255,13 +341,7 @@ def tokenize_only(text):
 
 def correct_words(words):
     #Try correct wrong typed words
-    correcter = SpellingReplacer()
-    corrected_words = []
-    for word in words:
-        word = correcter.replace(word)
-        # correcter may split one word to 2 words with space delimiter, so..
-        corrected_words.extend(word.split())
-    return corrected_words
+    return [SpellCorrecter().correct(word) for word in words]
 
 def remove_wrong_words(words):
     outwords = []
@@ -331,10 +411,11 @@ def create_dict(sentences):
 def filter_dict(word_count_map):
     # create a dict of word->0, word are filtered and stemmed
     allwords = word_count_map.keys()
-    print "remove wrong words"
+    print "try to correct wrong words"
+    allwords = correct_words(allwords)
+    print "remove wrong words which cannot be corrected"
     allwords = remove_wrong_words(allwords)
 
-    #    allwords = remove_single_words(allwords)
     #stem and remove stopwords
     print "remove stopwords"
     allwords = remove_stopwords(stem_words(allwords))
@@ -391,12 +472,12 @@ def create_userdefined_words():
     save_list("wrong_but_repeated_3.txt", [item[0] + ":" + str(item[1]) for item in wrong_but_repeated])
 
 def create_and_save_dict():
-    lines = read_list_in_file("feedback.txt")
-    print "creating dict from feedback.txt"
+    lines = read_list_in_file("original_feedback_with_ids_en.csv")
+    print "creating dict from original_feedback_with_ids_en.csv"
     word_count_map = create_dict(lines)
     words_dict = filter_dict(word_count_map)
 
-    save_list("mydict.txt", words_dict.keys())
+    save_list("dtmdict.txt", words_dict.keys())
     save_list("wrong_words.txt", wrong_words)
  
 def create_dtm_from_csv():
@@ -406,7 +487,7 @@ def create_dtm_from_csv():
 
     if len(dtm) != len(csvinfo.getlabels()):
         print "WARNING!!!"
-    print dtm
+
     labels01 = csvinfo.get_01_labels()
     labels01_vec = [[val] for val in labels01]
     dtm_withlabel = mergelist(dtm, labels01_vec)
@@ -495,24 +576,30 @@ def filter_informative():
     csvinfo_test.filter_by_clf(preds)
 
 
+def filter_feedback():
+    filter = DataSelector("nps_900.csv")
+    exclude_ids = filter.get_ids()
+
+    selector = DataSelector("original_feedback_with_ids_en.csv")
+    save_list("rand2000.txt", selector.random_select(2000, exclude_ids))
+
 def random_select_feedback():
     filter = DataSelector("filtered_300_classify.csv")
 
-    filter_ids = filter.get_id_lines()
-    filter_ids = [row[0] for row in filter_ids] # these ids are already classified, will be skipped in the random_select
+    exclude_ids = filter.get_ids()
 
     selector = DataSelector("informativefeedback.txt")
-    selector.random_select(2000, filter_ids)
+    save_list("rand2000.txt", selector.random_select(2000, exclude_ids))
 
 def test_my_own_dic():
-    mydict = SpellingCheck()
-    mydict.add_dict_file("en_US.dic")
-    mydict.add_dict_file("words.txt")
-    mydict.add_dict_file("mydict.txt")
-    print "this is in: " + str(mydict.check_word("this"))
-    print mydict.check_word("thinned")
-    print mydict.check_word("thinner")
-    mydict.save_dict("my_en_us.pic")
+    en_dict = SpellingCheck()
+    en_dict.add_dict_file("en_US.dic")
+    en_dict.add_dict_file("words.txt")
+    en_dict.add_dict_file("mywords.txt")
+    print "this is in: " + str(en_dict.check_word("this"))
+    print en_dict.check_word("thinned")
+    print en_dict.check_word("thinner")
+    en_dict.save_dict("my_en_us.pic")
     mydict2 = SpellingCheck()
     print "java is in: " + str(mydict2.check_word("java"))
 
@@ -521,18 +608,23 @@ def filter_wrong_sentences():
     out = [line.rstrip() for line in lines if not is_wrong_sentence(line)]
     save_list("filter_wrong_sentence.txt", out)
 
+def correct_wrong_words():
+    csvinfo = CsvInfo_NoLabel("original_feedback_with_ids_en.csv",False)
+    csvinfo.correct_feedback()
 
 if __name__ == "__main__":
 #    reload(sys)  
 #    sys.setdefaultencoding('utf8')
-    #create_dtm_from_csv()
+    create_dtm_from_csv()
     #test_csvinfo()
-    #test_clf()
+    test_clf()
     #train_clf()
     #create_and_save_dict()
     #filter_informative()
     # random_select_feedback()
     #create_userdefined_words()
     #test_my_own_dic()
-    filter_wrong_sentences()
+    #filter_wrong_sentences()
     #print is_wrong_sentence("Kh?ng chay duoc nh?ng ung du?ng co? java")
+    #correct_wrong_words()
+
