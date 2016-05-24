@@ -140,9 +140,12 @@ class DataSelector(object):
     def __init__(self, filename):
         self._filename = filename
         self._content_list = read_list_in_file(filename)
-        self._id_lines = []
+        self.create_id_lines()
+
+    def create_id_lines(self):
         #get id list with format (id, subid, fullline)
         pattern = r'(\d+),(\d+),(.+)'
+        self._id_lines = []
         for line in self._content_list:
             line = line.rstrip()
             res = re.search(pattern, line)
@@ -153,6 +156,10 @@ class DataSelector(object):
         return self._id_lines
     def get_ids(self):
         return [(row[0], row[1]) for row in self._id_lines]
+
+    def split_line(self):
+        self._content_list = split_sentence(self._content_list)
+        self.create_id_lines()
 
     def filter_out(self, exclude_ids):
         return [row[2] for row in self._id_lines if (row[0],row[1]) not in exclude_ids]
@@ -168,12 +175,12 @@ class CsvInfo(object):
         self.__filename = filename
         self.content_list = read_list_in_file(filename)
 
-        self._ids,self._subids,self.__feedbacks,self.__labels,self.__emotions=self.getcolumns()
+        self._columns = (self._ids,self._subids,self.__feedbacks,self.__labels,self.__emotions) =self.getcolumns()
         if create_dtm:
             self.__dtm, self.__dtm_freq = self.create_DTM_with_dict()
 
     def match_pattern(self):
-        return r'(\d+),(\d+),(.+),(\d+) - .+,(-?\d+)'
+        return r'(\d+),(\d+),(.+),(\d+) - .+,(-?\d+)?'
     def getcolumns(self):
         ids = []
         subids = []
@@ -188,8 +195,10 @@ class CsvInfo(object):
                 feedback = result.groups()[2]
                 feedbacks.append(feedback)
                 if len(result.groups())>=5:
-                    labels.append(int(result.groups()[3]))
-                    emotions.append(int(result.groups()[4]))
+                    labels.append(result.groups()[3])
+                    emotion = result.groups()[4]
+                    emotion = emotion if emotion else ''
+                    emotions.append(emotion)
             else:
                 print 'warning: mismatch----' + line
 
@@ -256,19 +265,14 @@ class CsvInfo(object):
         return dtm, dtm_freq
 
     def correct_feedback(self):
-        new_contents = []
-        for line in self.__feedbacks:
-            words = tokenize_only(line)
-            for word in words:
-                #corrected = SpellingReplacer().correct(word)
-                corrected = SpellCorrecter().correct(word)
-                if corrected != word:
-                    print "correct %s to %s" %(word, corrected)
-                    line = line.replace(word, corrected)
-            new_contents.append(line)
-        new_filelines = zip(self._ids, self._subids, self.__feedbacks, new_contents)
-        new_filelines = ['^'.join(newline) for newline in new_filelines]
-        save_list("corrected_feedbacks.txt", new_filelines)
+        new_contents, words_changed = correct_sentences(self.__feedbacks)
+        self._columns += (new_contents, words_changed)
+
+    def save_columns(self, filename):
+        clmns = [clm for clm in self._columns if len(clm)>0]
+        new_contents = zip(*clmns)
+        format_contents = ['^'.join(line) for line in new_contents]
+        save_list(filename, format_contents)
 
 
 class CsvInfo_NoLabel(CsvInfo):
@@ -342,6 +346,24 @@ def tokenize_only(text):
 def correct_words(words):
     #Try correct wrong typed words
     return [SpellCorrecter().correct(word) for word in words]
+
+
+def correct_sentences(sentences):
+    new_sentences = []
+    words_changed = []
+    for line in sentences:
+        words = tokenize_only(line)
+        changed = []
+        for word in words:
+            #corrected = SpellingReplacer().correct(word)
+            corrected = SpellCorrecter().correct(word)
+            if corrected != word:
+                changed.append("'%s to %s'" %(word, corrected))
+                line = re.sub(word, corrected, line,flags=re.IGNORECASE)
+        words_changed.append(' '.join(changed))
+        new_sentences.append(line)
+
+    return new_sentences, words_changed
 
 def remove_wrong_words(words):
     outwords = []
@@ -453,6 +475,27 @@ def load_dtm(filename):
         nums = line.split(',')
         matrix.append([int(num) for num in nums])
     return matrix
+
+def is_tooshort(sentence):
+    return len(sentence) <= 6 or len(sentence.split(' '))<=2
+
+def split_sentence(lines):
+    split_list = []
+    for line in lines:
+        pattern = r'(\d+),(\d+),(.+)'
+        res = re.search(pattern, line)
+        if res:
+            line_id = res.groups()[0]
+            subid =int(res.groups()[1])
+            feedback = res.groups()[2]
+            sentences = feedback.split('.')
+            for sentence in sentences:
+                if is_tooshort(sentence):
+                    continue
+                splitline = "%s,%d,%s" % (line_id, subid, sentence)
+                split_list.append(splitline)
+                subid+=1
+    return split_list
 
 # test code below
 def create_userdefined_words():
@@ -575,13 +618,13 @@ def filter_informative():
 
     csvinfo_test.filter_by_clf(preds)
 
-
-def filter_feedback():
+def split_filter_feedback():
     filter = DataSelector("nps_900.csv")
     exclude_ids = filter.get_ids()
 
     selector = DataSelector("original_feedback_with_ids_en.csv")
-    save_list("rand2000.txt", selector.random_select(2000, exclude_ids))
+    selector.split_line()
+    save_list("test_en.txt", selector.filter_out( exclude_ids))
 
 def random_select_feedback():
     filter = DataSelector("filtered_300_classify.csv")
@@ -609,15 +652,16 @@ def filter_wrong_sentences():
     save_list("filter_wrong_sentence.txt", out)
 
 def correct_wrong_words():
-    csvinfo = CsvInfo_NoLabel("original_feedback_with_ids_en.csv",False)
+    csvinfo = CsvInfo("nps_900.csv",False)
     csvinfo.correct_feedback()
+    csvinfo.save_columns("nps_900_correct.csv")
 
 if __name__ == "__main__":
 #    reload(sys)  
 #    sys.setdefaultencoding('utf8')
-    create_dtm_from_csv()
+    #create_dtm_from_csv()
     #test_csvinfo()
-    test_clf()
+    #test_clf()
     #train_clf()
     #create_and_save_dict()
     #filter_informative()
@@ -626,5 +670,5 @@ if __name__ == "__main__":
     #test_my_own_dic()
     #filter_wrong_sentences()
     #print is_wrong_sentence("Kh?ng chay duoc nh?ng ung du?ng co? java")
-    #correct_wrong_words()
-
+    correct_wrong_words()
+    #split_filter_feedback()
