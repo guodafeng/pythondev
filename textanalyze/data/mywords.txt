@@ -17,6 +17,7 @@ smartphone
 uninstall
 ovi
 lumia
+samsung
 gmail
 ipad
 gprs
@@ -32,3 +33,8 @@ gif
 meego
 signout
 signin
+mms
+vxp
+operamini
+gameloft
+usb
