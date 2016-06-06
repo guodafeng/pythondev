@@ -38,3 +38,4 @@ vxp
 operamini
 gameloft
 usb
+2go
