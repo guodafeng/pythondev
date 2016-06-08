@@ -1,8 +1,9 @@
 import os
+import re
+import collections
 import enchant
 import pickle
-from nltk.metrics import edit_distance
-
+# helper classes definition
 class Singleton(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
@@ -10,29 +11,31 @@ class Singleton(type):
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
 
-class SpellingReplacer(object):
-    __metaclass__ = Singleton
-    def __init__(self, dict_name = 'en_US', mywords = 'mywords.txt', max_dist = 1):
-        self.spell_dict = enchant.DictWithPWL(dict_name, fulldatapath(mywords))
-        self.max_dist = max_dist
-
-    def correct(self, word):
-        # used distance for correcting word
-        dist = len(word)/3 + 1
-        if  SpellingCheck().check_word(word):
-            return word
-
-        suggestions = self.spell_dict.suggest(word)
-        if word == 'amprove':
-            print "correct word amprove to:"
-            print suggestions[0]
-        if suggestions and edit_distance(word, suggestions[0]) <= dist:
-            return suggestions[0]
-        else:
-            return word
-
-    def testword(self, word):
-        return self.spell_dict.check(word)
+# The class has been replaced by SpellCorrecter
+# class SpellingReplacer(object):
+#     __metaclass__ = Singleton
+#     def __init__(self, dict_name = 'en_US', mywords = 'mywords.txt', max_dist = 1):
+#         self.spell_dict = enchant.DictWithPWL(dict_name, fulldatapath(mywords))
+#         self.max_dist = max_dist
+#
+#     def correct(self, word):
+#         # used distance for correcting word
+#         from nltk.metrics import edit_distance
+#         dist = len(word)/3 + 1
+#         if  SpellingCheck().check_word(word):
+#             return word
+#
+#         suggestions = self.spell_dict.suggest(word)
+#         if word == 'amprove':
+#             print "correct word amprove to:"
+#             print suggestions[0]
+#         if suggestions and edit_distance(word, suggestions[0]) <= dist:
+#             return suggestions[0]
+#         else:
+#             return word
+#
+#     def testword(self, word):
+#         return self.spell_dict.check(word)
 
 class SpellingCheck(object):
     __metaclass__ = Singleton
@@ -114,10 +117,13 @@ class SpellCorrecter(object):
             return word
 
 class DataSelector(object):
-    def __init__(self, filename):
-        self._filename = filename
-        self._content_list = read_list_in_file(filename)
-        self.create_id_lines()
+    def __init__(self, filename=None, content_list=None):
+        if filename:
+            self._content_list = read_list_in_file(filename)
+            self.create_id_lines()
+        elif content_list:
+            self._content_list = content_list
+            self.create_id_lines()
 
     def create_id_lines(self):
         #get id list with format (id, subid, fullline)
@@ -135,7 +141,7 @@ class DataSelector(object):
         return [(row[0], row[1]) for row in self._id_lines]
 
     def split_line(self):
-        self._content_list = split_sentence(self._content_list)
+        self._content_list = split_sentences(self._content_list)
         self.create_id_lines()
 
     # filter out wrong lines and lines of which id are in exclude_ids
@@ -148,7 +154,7 @@ class DataSelector(object):
         filtered_rows = self.filter_out(exclude_ids)
         return filtered_rows[:data_count]
 
-
+############ helper functions definition########################
 def fulldatapath(filename):
     return ".%s%s%s%s" % (os.sep, "data", os.sep, filename)
 
@@ -171,3 +177,80 @@ def read_list_in_file(filename):
 def correct_words(words):
     #Try correct wrong typed words
     return [SpellCorrecter().correct(word) for word in words]
+
+def split_sentence(sent):
+    return sent.split('.')
+
+def split_sentences(lines):
+    split_list = []
+    for line in lines:
+        pattern = r'(\d+),(\d+),(.+)'
+        res = re.search(pattern, line)
+        if res:
+            line_id = res.groups()[0]
+            subid =int(res.groups()[1])
+            feedback = res.groups()[2]
+            sentences = split_sentence(feedback)
+            for sentence in sentences:
+                if is_tooshort(sentence):
+                    continue
+                splitline = "%s,%d,%s" % (line_id, subid, sentence)
+                split_list.append(splitline)
+                subid+=1
+    return split_list
+
+def tokenize_only(text):
+    if not is_ascii(text):
+        return [] #only english is supported
+
+    # first tokenize by sentence, then by word to ensure that punctuation is caught as it's own token
+    # tokens = [word.lower() for sent in nltk.sent_tokenize(text) for word in nltk.word_tokenize(sent)]
+    #tokens = re.split(r'[,;:.&\[\]\\ /!?()0123456789]', text.lower())
+    from enchant.tokenize import get_tokenizer
+    tknzr = get_tokenizer("en_US")
+    tokens = [w for (w,p) in tknzr(text.lower())]
+
+    filtered_tokens = []
+    # filter out any tokens not containing letters (e.g., numeric tokens, raw punctuation)
+    for token in tokens:
+        token.rstrip()
+        if re.search('[a-zA-Z]', token): # and len(token)>=2:
+            filtered_tokens.append(token)
+
+    return filtered_tokens
+
+def is_ascii(s):
+    return all(ord(c) < 128 for c in s)
+
+def is_wrong_sentence(line):
+    words = tokenize_only(line)
+    wrong_num = 0
+    for word in words:
+        if not SpellingCheck().check_word(word):
+            wrong_num += 1
+
+    return wrong_num * 3 > len(words)
+
+def correct_sent(sent):
+    words = tokenize_only(sent)
+    changed = []
+    for word in words:
+        corrected = SpellCorrecter().correct(word)
+        replace_pattern = '\b'+word+'\b'
+        if corrected != word:
+            changed.append("'%s -> %s'" %(word, corrected))
+            sent = re.sub(word, corrected, sent,flags=re.IGNORECASE)
+    return sent, ' '.join(changed)
+
+def prepare_dict():
+    #en_US.dic and words.txt are from internet, mywords.txt is used to define our own dictory
+    #run this method if there is no data/my_en_us.pic or any of those dict file are changed
+    en_dict = SpellingCheck()
+    en_dict.add_dict_file("en_US.dic")
+    en_dict.add_dict_file("words.txt")
+    en_dict.add_dict_file("mywords.txt")
+    print en_dict.check_word("thinned")
+    print en_dict.check_word("thinner")
+    en_dict.save_dict("my_en_us.pic")
+    mydict2 = SpellingCheck()
+    print mydict2.check_word("java"))

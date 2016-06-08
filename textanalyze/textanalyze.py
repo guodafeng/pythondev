@@ -3,7 +3,6 @@ import textmining
 import nltk
 import re
 import os
-import collections
 import fileinput
 import numpy as np
 from sklearn.naive_bayes import GaussianNB
@@ -14,7 +13,7 @@ from myutility import *
 """
 Usage guideline:
  1. comment/uncomment/add function call under __name__=="__main__"  for your purpose
- 2. call create_my_own_dic() first to create our own defined English dict for checking word spelling, other methods will depend on it
+ 2. call prepare_dict first to create our own defined English dict for checking word spelling, other methods will depend on it
  3. class DTM_dict: for creating words set file from a complete feedback file, word set will be used at dtm(document-term matrix) phase
     refer to create_dtm_dict().
  4. class DataSelector: for select specific data from feedback file,refer to split_filter_feedback() and random_select_feedback()
@@ -278,36 +277,6 @@ def stem_words(words):
 def remove_stopwords(words):
     return [word for word in words if word not in stopwords and word.find("'")<0] # normally word contain ' should be stopword, like can't I'v ...
 
-def tokenize_only(text):
-    if not is_ascii(text):
-        return [] #only english is supported
-
-    # first tokenize by sentence, then by word to ensure that punctuation is caught as it's own token
-    # tokens = [word.lower() for sent in nltk.sent_tokenize(text) for word in nltk.word_tokenize(sent)]
-    #tokens = re.split(r'[,;:.&\[\]\\ /!?()0123456789]', text.lower())
-    from enchant.tokenize import get_tokenizer
-    tknzr = get_tokenizer("en_US")
-    tokens = [w for (w,p) in tknzr(text.lower())]
-
-    filtered_tokens = []
-    # filter out any tokens not containing letters (e.g., numeric tokens, raw punctuation)
-    for token in tokens:
-        token.rstrip()
-        if re.search('[a-zA-Z]', token): # and len(token)>=2:
-            filtered_tokens.append(token)
-
-    return filtered_tokens
-
-
-def correct_sent(sent):
-    words = tokenize_only(sent)
-    changed = []
-    for word in words:
-        corrected = SpellCorrecter().correct(word)
-        if corrected != word:
-            changed.append("'%s -> %s'" %(word, corrected))
-            sent = re.sub(word, corrected, sent,flags=re.IGNORECASE)
-    return sent, ' '.join(changed)
 
 def correct_sentences(sentences):
     new_sentences = []
@@ -328,22 +297,6 @@ def remove_wrong_words(words):
 
     return outwords
 
-def is_ascii(s):
-    return all(ord(c) < 128 for c in s)
-
-def is_wrong_sentence(line):
-    words = tokenize_only(line)
-    wrong_num = 0
-    for word in words:
-        if not SpellingCheck().check_word(word):
-            wrong_num += 1
-
-    #if (len(words)*4 > len(line)) and wrong_num*3<=len(words):
-    if wrong_num*2>=len(words):
-        print "possible wrong line:" + line
-    return wrong_num * 3 > len(words)
-
-
 def create_matrix_with_dict(lines, wordset):
     wordsinline_list = [ tokenize_and_stem(line) for line in lines]
     matrix = []
@@ -360,23 +313,6 @@ def create_matrix_with_dict(lines, wordset):
 def is_tooshort(sentence):
     return len(sentence) <= 6 or len(sentence.split(' '))<=2
 
-def split_sentence(lines):
-    split_list = []
-    for line in lines:
-        pattern = r'(\d+),(\d+),(.+)'
-        res = re.search(pattern, line)
-        if res:
-            line_id = res.groups()[0]
-            subid =int(res.groups()[1])
-            feedback = res.groups()[2]
-            sentences = feedback.split('.')
-            for sentence in sentences:
-                if is_tooshort(sentence):
-                    continue
-                splitline = "%s,%d,%s" % (line_id, subid, sentence)
-                split_list.append(splitline)
-                subid+=1
-    return split_list
 
 #  create words set from the input filename, and save the set to DTM_DICT_F
 def create_dtm_dict(filename):
@@ -490,20 +426,20 @@ def filter_informative():
     csvinfo_test.filter_by_clf(preds)
 
 def split_filter_feedback():
-    filter = DataSelector("nps_900.csv")
+    filter = DataSelector(filename = "nps_900.csv")
     exclude_ids = filter.get_ids()
 
-    selector = DataSelector("original_feedback_with_ids_en.csv")
+    selector = DataSelector(filename="original_feedback_with_ids_en.csv")
     selector.split_line()
 
     save_list("test_en.txt", selector.filter_out( exclude_ids))
 
 def random_select_feedback():
-    filter = DataSelector("filtered_300_classify.csv")
+    filter = DataSelector(filename="filtered_300_classify.csv")
 
     exclude_ids = filter.get_ids()
 
-    selector = DataSelector("informativefeedback.txt")
+    selector = DataSelector(filename="informativefeedback.txt")
     save_list("rand2000.txt", selector.random_select(2000, exclude_ids))
 
 
