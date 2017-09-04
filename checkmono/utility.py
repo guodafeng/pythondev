@@ -22,6 +22,10 @@ def save_list(filename, lines, param = 'w'):
     fh.writelines(lines)
     fh.close()
 
+def set_path_to_current_file():
+    os.chdir(os.path.realpath(os.path.dirname(__main__.__file__)))
+
+
 def get_module():
     #(__main__.__file__): filename of the script calling this function
     #(__file__): current file name
