@@ -31,21 +31,36 @@ def get_module():
     #(__file__): current file name
     return os.path.splitext(os.path.basename(__main__.__file__))[0]
 
-def get_logger(path):
+def get_logger(path=''):
+    if path == '':
+        path = os.path.dirname(__main__.__file__)
+    if len(path)>0 and path[-1] != '/':
+        path += '/'
+
+
     module_name = get_module()
+    logfile = path + module_name + '.log'
     logger = logging.getLogger(module_name)
     logger.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
-    fh = logging.FileHandler(path + '\\' + module_name + '.log', encoding='utf8')
-    fh.setLevel(logging.INFO)
+    fh = logging.FileHandler(path + module_name + '.log', encoding='utf8')
+
     # create console handler with a higher log level
     ch = logging.StreamHandler()
     ch.setLevel(logging.ERROR)
     # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(asctime)s <%(name)s> %(levelname)s - %(message)s')
+    formatter = logging.Formatter("%(asctime)s [%(filename)s:%(lineno)s -"
+            " %(funcName)20s() ] %(message)s")
+    # formatter = logging.Formatter('%(asctime)s <%(name)s> %(levelname)s - %(message)s')
     fh.setFormatter(formatter)
     ch.setFormatter(formatter)
     # add the handlers to the logger
     logger.addHandler(fh)
     logger.addHandler(ch)
     return logger
+
+if __name__ == '__main__':
+    mylog = get_logger()
+    mylog.info("just a test")
+
+
