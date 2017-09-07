@@ -6,6 +6,7 @@ from collections import namedtuple
 
 
 g_logger = None
+g_err = []
 def mylogger(path = ''):
     global g_logger
     if g_logger is None:
@@ -13,21 +14,18 @@ def mylogger(path = ''):
 
     return g_logger
  
-utility.set_path_to_current_file()
 BoundingBox = namedtuple('BoundingBox', ['w', 'h', 'xoff', 'yoff'])
 
-class CheckErr(Exception):
-    def __init__(self, message):
-        self.message = message
+CheckItem = namedtuple('CheckItem', ['file_to_check', 'base_file'])
+
+# class CheckErr(Exception):
+    # def __init__(self, message):
+        # self.message = message
 
 
-class BreakRule(CheckErr):
-    pass
+# class BreakRule(CheckErr):
+    # pass
 
-
-def raise_error(message):
-    # raise BreakRule(message)
-    print(message)
 
 class CharElm(object):
     def __init__(self, content):
@@ -87,15 +85,14 @@ class CharElm(object):
     def consistent_to(self, font_info):
         def check(val, err):
             if not val:
-                #raise_error('glyph ' + self.unicode + ' '+ err) 
-                print('glyph ' + self.unicode + ' '+ err) 
+                raise_error('glyph ' + self.unicode + ' '+ err) 
 
 
         check(int(self.bounding.w) > 0 and int(self.bounding.h) > 0,
                 'Height, Width should not be zero')
         check(self.bounding.h == font_info.bounding.h, 
         'BBh should be equal to font height')
-        check(self.bounding.xoff == 0, 'BBxoff is recomended to be 0')
+        check(self.bounding.xoff == '0', 'BBxoff is recomended to be 0')
         check(self.bounding.yoff == font_info.bounding.yoff,
                 'BByoff should be equal to font yoff')
         check(len(self.bitmap) == int(font_info.bounding.h),
@@ -161,11 +158,35 @@ class BdfFile(object):
 
     def checkElms(self):
         for elm in self._chars:
-            try:
-                elm.consistent_to(self._font_info)
-            except BreakRule as e:
-                print(e.message)
+            elm.consistent_to(self._font_info)
             
             
+
+def _compare_fontinfo(info1, info2):
+    if info1.ascent != info2.ascent:
+        raise_error('FONT_ASCENT is not equal in the two files')
+    if info1.descent != info2.descent:
+        raise_error('FONT_DESCENT is not equal in the two files')
+
+
+def check_bdf(fn1, fn2=''):
+    global g_err
+    g_err = []
+
+    b1 = BdfFile(fn1)
+    b1.checkElms()
+
+    if fn2 != '':
+        b2 = BdfFile(fn2)
+        _compare_fontinfo(b1._font_info, b2._font_info)
+
+    return g_err
+
+
+def raise_error(message):
+    global g_err
+    g_err.append(message + '\n')
+
+
 
 
