@@ -100,11 +100,11 @@ class CharElm(object):
         check(self.bitmap_width()*8 >= int(self.bounding.w),
                 'Bitmap length multiple of 8 should be greater or equal'
                 'than glyph width')
-        check(self.dwidth == self.bounding.w,
-                'Dwidth is not equal to BBX width. It is suggest that '
-                'Dwidth should contain the width of that dependent char,'
-                'Other kerning (position adjustment) will be done by MTK'
-                )
+        # check(self.dwidth == self.bounding.w,
+                # 'Dwidth is not equal to BBX width. It is suggest that '
+                # 'Dwidth should contain the width of that dependent char,'
+                # 'Other kerning (position adjustment) will be done by MTK'
+                # )
 
 
 class FontInfo(object):

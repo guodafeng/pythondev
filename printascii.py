@@ -15,7 +15,7 @@ def print_ascii():
     line = ''
     for i in range (cols):
         line += "DEC  HEX CH    "
-    print line
+    print (line)
     for i in range(rows):
         line = ''
         for j in range(cols+1):
@@ -26,6 +26,6 @@ def print_ascii():
             if (code in spec_dict):
                 ch = spec_dict[code]
             line += "%3d  %2X  %-2s    " % (code, code, ch)
-        print line
+        print( line)
 if __name__ == '__main__':
     print_ascii()

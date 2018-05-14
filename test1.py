@@ -1,7 +1,7 @@
 import pickle
 import re
 import printascii
-
+'''
 def _isupper(str):
     upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     res = True
@@ -16,7 +16,7 @@ def level0():
     res = 2
     for i in range(37):
         res = res * 2
-    print res
+    print( res)
 
 def level1(str):
     print "level1"
@@ -114,9 +114,6 @@ def level6():
 def main():
     printascii.print_ascii()
     level0()
-    str = "g fmnc wms bgblr rpylqjyrc gr zw fylb. rfyrq ufyr amknsrcpq ypc dmp. bmgle gr gl zw fylb gq glcddgagclr ylb rfyr'q ufw rfgq rcvr gq qm jmle. sqgle qrpgle.kyicrpylq() gq pcamkkclbcb. lmu ynnjw ml rfc spj."
-    level1(str)
-    str = "map"
     level1(str)
     level2(str)
 
@@ -124,5 +121,35 @@ def main():
     #level4(r"http://www.pythonchallenge.com/pc/def/linkedlist.php?nothing=12345")
 
     level5()
+
+'''
+
+class A(object):
+    ta = 'abc'
+    @classmethod
+    def c_f(cls):
+        print('c_f')
+
+    def m_f(self):
+        print('m_f')
+        print(self.ta)
+        self.c_f()
+
+class B(object):
+    def __init__(self,val, res):
+        self.val = val
+        self.res_file = res
+
 if __name__ == '__main__':
-    main()
+    # main()
+    a = A()
+    a.m_f()
+
+    b1 = B(3, 'fdf')
+    b2 = B(4, 'xxx')
+    b3 = B(5, 'aaa')
+
+    not_in_t2 = [b1, b2, b3]
+    print (not_in_t2)
+    not_in_t2.sort(key=lambda x:x.res_file)
+    print (not_in_t2)

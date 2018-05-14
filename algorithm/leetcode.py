@@ -3,8 +3,81 @@ class TreeNode(object):
         self.val = x
         self.left = None
         self.right = None
+# Definition for an interval.
+class Interval:
+    def __init__(self, s=0, e=0):
+        self.start = s
+        self.end = e
 
+       
 class Solution:
+    def employeeFreeTime(self, schedule):
+        """
+        :type schedule: List[List[Interval]]
+        :rtype: List[Interval]
+        """
+        merged = None
+
+        for elm in schedule:
+            if not merged:
+                merged = elm
+            else:
+                merged = self._merge_interval(merged, elm)
+
+        return self._combine_merge(merged)
+
+    def _combine_merge(self, merged):
+        size = len(merged)
+        out = []
+        for i in range(1, size):
+            out.append(Interval(merged[i-1].end,merged[i].start)
+        return out
+
+
+    def _merge_interval(self, emp1, emp2):
+        out = []
+        len1 = len(emp1)
+        len2 = len(emp2)
+        
+        i1 = 0
+        i2 = 0
+        while i1 < len1 and i2 < len2:
+            inter1 = emp1[i1]
+            inter2 = emp2[i2]
+            if inter1.end < inter2.start:
+                out.append(inter1)
+                i1 += 1
+            elif inter2.end < inter1.start:
+                out.append(inter2)
+                i2 += 1
+            elif inter1.end < inter2.end:
+                inter2.start = min(inter1.start, inter2.start)
+                i1 += 1
+            elif inter2.end < inter1.end:
+                inter1.start = min(inter1.start, inter2.start)
+                i2 += 1
+            elif inter1.end == inter2.end:
+                inter1.start = min(inter1.start, inter2.start)
+                out.append(inter1)
+                i1+=1
+                i2+=1
+
+        for i in range(i1,len1):
+            out.append(emp1[i])
+        for i in range(i2,len2):
+            out.append(emp2[i])
+
+        return out
+
+
+                
+
+
+        
+        for interval1 in emp1:
+            for interval2 in emp2:
+
+
     def findClosestElements(self, arr, k, x):
         """
         :type arr: List[int]
