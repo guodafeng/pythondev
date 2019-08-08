@@ -109,7 +109,7 @@ def test_all_equal():
     end = datetime.now()
     print(end - begin)
 
-#test_get_elms()
-#test_eval()
-test_all_exps()
-#test_all_equal()
+# test_get_elms()
+# test_eval()
+# test_all_exps()
+test_all_equal()
