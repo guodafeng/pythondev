@@ -1,7 +1,6 @@
 import pickle
 import re
 import printascii
-'''
 def _isupper(str):
     upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     res = True
@@ -16,10 +15,9 @@ def level0():
     res = 2
     for i in range(37):
         res = res * 2
-    print( res)
+    print(res)
 
 def level1(str):
-    print "level1"
     res = ""
     exd = " .()'"
     for i in range(len(str)):
@@ -30,20 +28,16 @@ def level1(str):
                 converted -= 26
         res = res + chr(converted)   
     
-    print res
 
 def level2(str):
 # find charaters in string
-    print "level2"
     chartable="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789"
     res = ""
     for i in range(len(str)):
         if (chartable.find(str[i]) >= 0):
             res = res + str[i]
-    print res
 def level3(str):
 #One small letter, surrounded by EXACTLY three big bodyguards on each of its sides.
-    print "level3"
     upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     lower = "abcdefghijklmnopqrstuvwxyz"
     res = ""
@@ -51,10 +45,8 @@ def level3(str):
         if (_isupper(str[i-3:i]) and _isupper(str[i+1:i+4]) and str[i].islower()):
             if ( ( (i-4)<0 or str[i-4].islower() ) and ( (i+4)>=len(str) or str[i+4].islower() ) ):
                 res += str[i]
-    print res
 
 def level4(str):
-    print "level4"
     proxy_support = urllib2.ProxyHandler({"http":"http://espcolo-webproxy00:8080"})
     opener = urllib2.build_opener(proxy_support)
     urllib2.install_opener(opener)
@@ -71,7 +63,6 @@ def level4(str):
         m = re.match(patt, content)
         if(m is None):
             nextURL = ''
-            print 'Next url cannot parsed, The page content is:' + content
             continue
         nextID = m.group(1)
 
@@ -82,7 +73,6 @@ def level4(str):
             continue
         nextURL = m.group(1) + nextID
 
-        print nextURL
 def geturlobj(str):
     proxy_support = urllib2.ProxyHandler({"http":"http://espcolo-webproxy00:8080"})
     opener = urllib2.build_opener(proxy_support)
@@ -106,24 +96,33 @@ def level5():
         mylist = [] 
         for i in item:
             mylist.append( i[0] * i[1] )
-        print ''.join(mylist)
+        print (''.join(mylist))
 
 def level6():
-    print 'level 6'
+    
+    for i in range(100):
+        if i % 15 == 0:
+            print("fizz-buff")
+        elif i % 3 == 0:
+            print("fizz")
+        elif i % 5 == 0:
+            print("buff")
+        else:
+            print(i)
+            print (" ")
+
 
 def main():
-    printascii.print_ascii()
+    # printascii.print_ascii()
     level0()
-    level1(str)
-    level2(str)
 
     #level3(str) # linkedlist
     #level4(r"http://www.pythonchallenge.com/pc/def/linkedlist.php?nothing=12345")
 
-    level5()
+    # level5()
+    level6()
 
-'''
-
+a = '''
 class A(object):
     ta = 'abc'
     @classmethod
@@ -139,9 +138,10 @@ class B(object):
     def __init__(self,val, res):
         self.val = val
         self.res_file = res
+'''
 
 if __name__ == '__main__':
-    # main()
+    main()
     a = A()
     a.m_f()
 

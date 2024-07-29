@@ -214,7 +214,7 @@ def testTrans():
 
 
 # testDfs()
-test24()
+test24_input()
 # testTrans()
             
 # testeval()

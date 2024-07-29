@@ -37,6 +37,30 @@ def eval_postfix(expr):
     
     return None
 
+def postfix_to_normal(expr):
+    elm_st = []
+    try:
+        for elm in get_elms(expr):
+            if not is_operator(elm):
+                elm_st.append(elm)
+            else:
+                right = elm_st.pop()
+                left = elm_st.pop()
+                expr = f'({left} {elm} {right})'
+
+                elm_st.append(expr)
+
+        if len(elm_st) == 1:
+            return elm_st[0]
+    except IndexError as e:
+        #print("The expression is likely invalid" + str(e))
+        return None
+    except ZeroDivisionError as e:
+        return None
+    
+    return None
+
+
 def is_valid(expr):
     return eval_postfix(' '.join(expr)) is not None
 
@@ -55,9 +79,28 @@ def all_equal(exprs, val):
     return [exp for exp in exprs if is_equal(exp, val)]
 
 
-def all_exps(nums):
+def all_exps_old(nums):
     exp_len = len(nums)*2 - 1
     return all_exps_imp(nums, exp_len)
+
+def all_exps(nums):
+    import itertools
+    ops = ['+', '-', '*', '/']
+    length = len(nums)
+    index_comp = list(itertools.combinations(range(len(nums)), 2))
+    ops_comp = list(itertools.combinations_with_replacement(ops,
+        len(nums)-1))
+
+    exprs = []
+    for comp in ops_comp:
+        for i_comp in index_comp:
+            headpart = list(itertools.permutations([nums[i] for i in i_comp]) )
+            temp = [nums[i] for i in range(length) if i not in i_comp] + list(comp)
+            tailpart = set(itertools.permutations(temp))
+
+            exprs += [head + tail for head in headpart for tail in tailpart]
+
+    return set(exprs)
 
 def all_exps_imp(nums, exp_len):
     ops = ['+', '-', '*', '/']
@@ -82,6 +125,13 @@ def all_exps_imp(nums, exp_len):
 def calc(left, right, operator):
     return eval('%s %s %s' % (str(left), operator, str(right)))
 
+def exprs_with_value(nums, value):
+    for expr in all_equal(all_exps(nums), value):
+        print(' -----------------')
+        print(' '.join(expr))
+        print(postfix_to_normal(' '.join(expr)))
+
+
 def test_get_elms():
     expr = '-27 -16 + -2 *'
     print(list(get_elms(expr)))
@@ -102,9 +152,9 @@ def test_all_equal():
     begin = datetime.now()
 
     nums = ['3','4','8','6']
-    print(list(map(lambda x:' '.join(x), all_equal(all_exps(nums),24))))
+    exprs_with_value(nums, 24)
     nums = ['7','3','7','3']
-    print(list(map(lambda x:' '.join(x), all_equal(all_exps(nums),24))))
+    exprs_with_value(nums, 24)
 
     end = datetime.now()
     print(end - begin)
